@@ -1,0 +1,33 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+/release/
+/output/
+/outputs/
+/.scratch/
+/.playwright-cli/
+/.DS_Store
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+src-tauri/bin/xunqi-pdf-renderer-*
+src-tauri/bin/xunqi-screen-recorder-*
+src-tauri/bin/xunqi-authorized-sniffer-*

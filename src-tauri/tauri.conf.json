@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "讯栖",
+  "version": "0.5.0-beta.1",
+  "identifier": "com.xiaofu.xunqi",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build:native && pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "讯栖",
+        "width": 1440,
+        "height": 1024,
+        "minWidth": 1040,
+        "minHeight": 680,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost",
+        "img-src": "'self' asset: http://asset.localhost data:",
+        "style-src": "'self' 'unsafe-inline'"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": ["bin/xunqi-pdf-renderer", "bin/xunqi-authorized-sniffer"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

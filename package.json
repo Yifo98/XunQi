@@ -1,0 +1,53 @@
+{
+  "name": "xunqi",
+  "private": true,
+  "version": "0.5.0-beta.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm typecheck && vite build",
+    "build:pdf-helper": "bash scripts/build-macos-pdf-helper.sh",
+    "build:sniffer-helper": "bash scripts/build-authorized-sniffer-helper.sh",
+    "build:native": "pnpm build:pdf-helper && pnpm build:sniffer-helper",
+    "typecheck": "tsc --noEmit -p tsconfig.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "rust:test": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo test --manifest-path src-tauri/Cargo.toml",
+    "check": "pnpm lint && pnpm typecheck && pnpm test:run && pnpm rust:test",
+    "package:portable:mac": "bash scripts/package-macos-portable.sh",
+    "package:portable:win": "powershell -ExecutionPolicy Bypass -File scripts/package-windows-portable.ps1",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-clipboard-manager": "2.3.2",
+    "@tauri-apps/plugin-dialog": "2.7.1",
+    "@tauri-apps/plugin-opener": "2.5.4",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@tauri-apps/cli": "2.11.4",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "4.7.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "eslint": "10.7.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.3",
+    "globals": "17.7.0",
+    "jsdom": "29.1.1",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.63.0",
+    "vite": "7.3.6",
+    "vitest": "4.1.10"
+  },
+  "packageManager": "pnpm@11.7.0"
+}
