@@ -31,7 +31,7 @@
 | `README.md`、`AUDIT.md`、`design-qa.md` | 完成品牌说明、只读审计、真实界面对照和验收记录。 |
 | `assets/publishing/` | 新增 ZH / EN 截图、29 秒视频、字幕、预览图和双语视频源文件。 |
 | `scripts/publishing/`、`docs/PUBLISHING-ASSETS.md` | 新增英文界面语言层、截图流程和双语视频可复现渲染说明。 |
-| `assets/portable/`、`scripts/package-windows-source.ps1`、`.github/workflows/windows-source-preview.yml` | Windows 发布候选改为源码 + BAT，ZIP 验证会拒绝 EXE、安装器、DLL 和 CMD。 |
+| `assets/portable/`、`scripts/package-windows-source.ps1`、`.github/workflows/windows-portable.yml` | Windows 发布候选改为源码 + BAT；工作流只沿用已登记路径，ZIP 验证会拒绝 EXE、安装器、DLL 和 CMD。 |
 | `docs/SMART-APP-CONTROL.md` | 记录微软官方 Smart App Control 规则、BAT 边界和签名建议。 |
 
 ## 双语截图清单

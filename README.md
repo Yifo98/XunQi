@@ -97,7 +97,7 @@ macOS 生成“源码＋运行文件＋启动器”预发布包：
 pnpm package:portable:mac
 ```
 
-Windows“源码 + BAT”候选包由 [Windows source and BAT preview](.github/workflows/windows-source-preview.yml) 在原生 Windows Runner 校验并生成：
+Windows“源码 + BAT”候选包由 [Windows source and BAT preview](.github/workflows/windows-portable.yml) 在原生 Windows Runner 校验并生成。工作流沿用旧路径以便在功能分支上手动触发，但已不再构建或打包 EXE：
 
 ```powershell
 pnpm package:source:win
