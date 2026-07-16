@@ -1,16 +1,18 @@
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #17172a;
-  background: #f7f7fc;
+  color: #182136;
+  background: #f8f6ef;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --violet: #6552ee;
-  --violet-dark: #5140d8;
-  --violet-soft: #f0edff;
-  --violet-tint: #f8f6ff;
-  --line: #e8e7f2;
-  --muted: #7d7b96;
+  --violet: #4f5fe7;
+  --violet-dark: #3e4dc7;
+  --violet-soft: #eef0ff;
+  --violet-tint: #f8f7ff;
+  --gold: #ffc231;
+  --paper: #fffdf7;
+  --line: #e7e5ec;
+  --muted: #74778b;
   --green: #19b64b;
   --red: #e75461;
   --amber: #d48a16;
@@ -51,7 +53,7 @@ select:focus-visible {
   width: 100%;
   height: 100%;
   min-width: 960px;
-  background: #fff;
+  background: var(--paper);
   overflow: hidden;
 }
 
@@ -61,8 +63,8 @@ select:focus-visible {
   grid-template-columns: 1fr minmax(280px, 420px) 1fr;
   align-items: center;
   padding: 0 44px;
-  border-bottom: 1px solid var(--line);
-  background: #fefeff;
+  border-bottom: 1px solid #e8e3d9;
+  background: #fffdf8;
 }
 
 .brand-lockup {
@@ -72,15 +74,10 @@ select:focus-visible {
 }
 
 .brand-lockup img {
-  width: 48px;
-  height: 48px;
-  border-radius: 13px;
-  box-shadow: 0 7px 18px rgba(88, 75, 205, 0.2);
-}
-
-.brand-lockup strong {
-  font-size: 25px;
-  letter-spacing: -0.6px;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(73, 79, 180, 0.15);
 }
 
 .brand-copy {
@@ -90,9 +87,39 @@ select:focus-visible {
   align-items: flex-start;
 }
 
+.brand-title-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.brand-title-row strong {
+  color: #182136;
+  font-size: 25px;
+  letter-spacing: -0.55px;
+}
+
+.brand-title-row strong span {
+  font-weight: 560;
+  letter-spacing: -0.3px;
+}
+
+.brand-title-row b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  color: var(--violet);
+  border: 1px solid rgba(79, 95, 231, 0.6);
+  border-radius: 50%;
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 .brand-copy span {
   margin-top: 4px;
-  color: #625a91;
+  color: #4f5982;
   font-family: "Songti SC", "STSong", serif;
   font-size: 15px;
   line-height: 1.35;
@@ -101,9 +128,10 @@ select:focus-visible {
 
 .brand-copy small {
   margin-top: 3px;
-  color: #9a96ad;
-  font-family: "Songti SC", "STSong", serif;
-  font-size: 12px;
+  color: #888b98;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 1.7px;
   line-height: 1.35;
   white-space: nowrap;
 }
@@ -118,14 +146,14 @@ select:focus-visible {
 .listening-mark img {
   width: 74px;
   height: 74px;
-  border-radius: 50%;
-  border: 8px solid #f2efff;
-  box-shadow: 0 0 0 1px #dcd5ff, 0 12px 26px rgba(92, 77, 208, 0.2);
+  border-radius: 20px;
+  border: 7px solid #f6f3ea;
+  box-shadow: 0 0 0 1px #e4dfd2, 0 12px 26px rgba(76, 77, 145, 0.16);
 }
 
 .listening-line {
   height: 1px;
-  background: #e4e0fb;
+  background: #dfddec;
 }
 
 .listening-status {
@@ -141,18 +169,26 @@ select:focus-visible {
   gap: 9px;
 }
 
+.about-button,
 .link-guide-button {
   min-height: 40px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 0 13px;
-  color: #5f55a4;
-  background: #f7f5ff;
-  border: 1px solid #ded8fa;
+  color: #4e5b9d;
+  background: #f8f7ff;
+  border: 1px solid #dcdff4;
   border-radius: 999px;
   font-size: 13px;
   cursor: pointer;
+}
+
+.about-button:hover,
+.link-guide-button:hover {
+  color: var(--violet-dark);
+  background: #f1f2ff;
+  border-color: #cdd2f3;
 }
 
 .sniff-active-pill {
@@ -193,7 +229,7 @@ select:focus-visible {
   display: flex;
   width: 100%;
   height: calc(100% - 132px);
-  background: #fff;
+  background: #fffdf9;
 }
 
 .task-sidebar {
@@ -201,7 +237,7 @@ select:focus-visible {
   min-width: 390px;
   display: flex;
   flex-direction: column;
-  background: #fbfbff;
+  background: #faf9fc;
   border-right: 1px solid var(--line);
   overflow: hidden;
 }
@@ -552,13 +588,14 @@ select:focus-visible {
 
 .sidebar-footer {
   padding: 10px 22px 14px;
-  background: #fbfbff;
+  background: #faf9fc;
   border-top: 1px solid var(--line);
 }
 
 .sidebar-footer > p {
   margin: 8px 0 0;
-  color: #aaa6b9;
+  color: #9692a2;
+  letter-spacing: 0.25px;
   font-size: 11px;
 }
 
@@ -1219,6 +1256,150 @@ select:focus-visible {
   box-shadow: 0 28px 80px rgba(35, 29, 63, 0.24);
 }
 
+.about-dialog {
+  width: min(700px, 100%);
+  padding: 30px;
+  color: #3e4352;
+  background: #fffdf8;
+  border: 1px solid #e4dfd5;
+  border-radius: 22px;
+  box-shadow: 0 30px 90px rgba(35, 39, 72, 0.24);
+}
+
+.about-dialog > header,
+.about-brand,
+.about-dialog > footer {
+  display: flex;
+  align-items: center;
+}
+
+.about-dialog > header {
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.about-dialog > header > button {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  color: #737684;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.about-brand {
+  gap: 16px;
+}
+
+.about-brand img {
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  box-shadow: 0 12px 30px rgba(63, 72, 163, 0.16);
+}
+
+.about-brand h2,
+.about-brand p,
+.about-intro {
+  margin: 0;
+}
+
+.about-brand h2 {
+  margin-top: 3px;
+  color: #182136;
+  font-size: 35px;
+  letter-spacing: -0.7px;
+}
+
+.about-brand h2 span {
+  font-family: "Avenir Next", "Helvetica Neue", sans-serif;
+  font-weight: 540;
+}
+
+.about-brand p {
+  margin-top: 6px;
+  color: #4e5982;
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 19px;
+  letter-spacing: 1px;
+}
+
+.about-chapter {
+  color: var(--violet);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.about-intro {
+  margin-top: 25px;
+  padding: 17px 19px;
+  color: #52586b;
+  background: #f8f6ef;
+  border: 1px solid #e9e3d7;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.about-principles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.about-principles article {
+  min-height: 138px;
+  padding: 17px;
+  background: #fbfaff;
+  border: 1px solid #e6e7f3;
+  border-radius: 14px;
+}
+
+.about-principles article::before {
+  width: 25px;
+  height: 3px;
+  display: block;
+  margin-bottom: 16px;
+  background: var(--gold);
+  border-radius: 999px;
+  content: "";
+}
+
+.about-principles strong,
+.about-principles span {
+  display: block;
+}
+
+.about-principles strong {
+  color: #29314b;
+  font-size: 14px;
+}
+
+.about-principles span {
+  margin-top: 8px;
+  color: #6f7383;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.about-dialog > footer {
+  justify-content: space-between;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #e9e5dc;
+}
+
+.about-dialog > footer > span {
+  color: #686c7a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.7px;
+}
+
 .link-guide-dialog > header,
 .link-guide-dialog > header > div {
   display: flex;
@@ -1574,6 +1755,16 @@ select:focus-visible {
   font-size: 14px;
 }
 
+.empty-brand-note {
+  margin-top: 20px;
+  padding-top: 18px;
+  color: #626b91;
+  border-top: 1px solid #e8e4db;
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 14px;
+  letter-spacing: 0.7px;
+}
+
 .expand-sidebar {
   width: 42px;
   min-width: 42px;
@@ -1713,6 +1904,16 @@ select:focus-visible {
 
   .listening-status {
     min-width: 270px;
+  }
+
+  .about-button {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .about-button span {
+    display: none;
   }
 
   .task-sidebar {

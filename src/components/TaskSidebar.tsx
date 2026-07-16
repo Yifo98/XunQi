@@ -206,7 +206,7 @@ export function TaskSidebar({
             清空已完成缓存
           </button>
         )}
-        <p>完成后保存到本地文件夹</p>
+        <p>内容留在本地 · A QIDU Utility</p>
       </div>
     </aside>
   );

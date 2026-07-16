@@ -51,12 +51,20 @@ describe("讯栖多任务工作台", () => {
     expect(screen.queryByText("没有匹配的任务")).not.toBeInTheDocument();
   });
 
-  it("在标题区以原创题记解释讯栖之名", async () => {
+  it("展示 QIDU 品牌题记，并在关于页说明本地与授权边界", async () => {
+    const user = userEvent.setup();
     render(<App backend={createPreviewBackend()} />);
 
     const [header] = await screen.findAllByRole("banner");
+    expect(within(header).getByText(/讯栖/)).toHaveTextContent("讯栖 XunQi");
     expect(within(header).getByText("讯来有迹，文止于栖。")).toBeInTheDocument();
-    expect(within(header).getByText("讯者，消息之所至；栖者，文章之所安。")).toBeInTheDocument();
+    expect(within(header).getByText("A QIDU Utility")).toBeInTheDocument();
+
+    await user.click(within(header).getByRole("button", { name: "关于" }));
+    const dialog = screen.getByRole("dialog", { name: "讯栖 XunQi" });
+    expect(within(dialog).getByText("栖 · CHAPTER 01")).toBeInTheDocument();
+    expect(within(dialog).getByText(/只接住你主动复制的微信分享链接/)).toBeInTheDocument();
+    expect(within(dialog).getByText("明确授权")).toBeInTheDocument();
   });
 
   it("在右侧一次处理勾选的公众号并导出 PDF，不把视频号加入批量下载", async () => {

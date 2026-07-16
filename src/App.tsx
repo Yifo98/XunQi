@@ -4,6 +4,7 @@ import {
   CaretRightIcon,
   CheckCircleIcon,
   CopySimpleIcon,
+  InfoIcon,
   LinkSimpleIcon,
   QuestionIcon,
   ShareNetworkIcon,
@@ -14,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import logoUrl from "../assets/brand/xunqi-ui.png";
 import "./App.css";
+import { BrandAboutDialog } from "./components/BrandAboutDialog";
 import { TaskDetail } from "./components/TaskDetail";
 import { TaskSidebar, type KindFilter } from "./components/TaskSidebar";
 import {
@@ -61,6 +63,7 @@ function App({ backend = defaultBackend }: AppProps) {
   const [sniffQueue, setSniffQueue] = useState<SniffQueueState | null>(null);
   const [sniffRecoveryNeeded, setSniffRecoveryNeeded] = useState(false);
   const [showLinkGuide, setShowLinkGuide] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const clipboardFingerprintRef = useRef<string | null>(null);
   const captureBusyRef = useRef(false);
   const wechatWasFrontmostRef = useRef(false);
@@ -697,9 +700,12 @@ function App({ backend = defaultBackend }: AppProps) {
         <div className="brand-lockup">
           <img src={logoUrl} alt="" />
           <div className="brand-copy">
-            <strong>讯栖</strong>
+            <div className="brand-title-row">
+              <strong>讯栖 <span lang="en">XunQi</span></strong>
+              <b>栖</b>
+            </div>
             <span>讯来有迹，文止于栖。</span>
-            <small>讯者，消息之所至；栖者，文章之所安。</small>
+            <small>A QIDU Utility</small>
           </div>
         </div>
         <div className="listening-mark" aria-hidden="true">
@@ -709,6 +715,10 @@ function App({ backend = defaultBackend }: AppProps) {
         </div>
         <div className="listening-status">
           <div className="listening-status-top">
+            <button type="button" className="about-button" onClick={() => setShowAbout(true)}>
+              <InfoIcon size={17} weight="bold" />
+              <span>关于</span>
+            </button>
             <button type="button" className="link-guide-button" onClick={() => setShowLinkGuide(true)}>
               <QuestionIcon size={17} weight="bold" />
               如何复制链接
@@ -855,6 +865,7 @@ function App({ backend = defaultBackend }: AppProps) {
           </section>
         </div>
       )}
+      {showAbout && <BrandAboutDialog onClose={() => setShowAbout(false)} />}
       {showLinkGuide && (
         <div className="modal-backdrop" role="presentation">
           <section className="link-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="link-guide-title">

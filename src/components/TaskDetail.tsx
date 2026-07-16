@@ -72,6 +72,7 @@ export function TaskDetail({
         <img src={logoUrl} alt="讯栖" />
         <h2>等待微信分享链接</h2>
         <p>在微信中打开文章或视频号，点“分享 → 复制链接”，任务会自动出现在左侧。</p>
+        <span className="empty-brand-note">讯来有迹，文止于栖。只接住你主动选择的内容。</span>
       </main>
     );
   }
