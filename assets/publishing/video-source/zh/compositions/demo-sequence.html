@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          color: #172033;
+          font-family: "Noto Sans JP", sans-serif;
+        }
+        .paper-stage {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background-color: #fffdf7;
+          background-image:
+            radial-gradient(circle at 84% 14%, rgba(79, 95, 231, 0.18) 0, rgba(79, 95, 231, 0) 28%),
+            radial-gradient(circle at 12% 92%, rgba(255, 194, 49, 0.17) 0, rgba(255, 194, 49, 0) 26%);
+        }
+        .paper-stage::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0.16;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.12'/%3E%3C/svg%3E");
+        }
+        .orbit-a,
+        .orbit-b {
+          position: absolute;
+          border: 3px solid rgba(79, 95, 231, 0.22);
+          border-radius: 50%;
+          transform: rotate(-12deg);
+          pointer-events: none;
+        }
+        .orbit-a { width: 650px; height: 220px; right: -170px; top: 42px; }
+        .orbit-b { width: 480px; height: 160px; left: -190px; bottom: 36px; border-color: rgba(255, 194, 49, 0.28); }
+        .register {
+          position: absolute;
+          width: 38px;
+          height: 38px;
+          opacity: 0.55;
+        }
+        .register::before,
+        .register::after {
+          content: "";
+          position: absolute;
+          background: #4f5fe7;
+        }
+        .register::before { left: 0; top: 0; width: 38px; height: 2px; }
+        .register::after { left: 0; top: 0; width: 2px; height: 38px; }
+        .register.top-left { left: 40px; top: 40px; }
+        .register.bottom-right { right: 40px; bottom: 40px; transform: rotate(180deg); }
+        .meta-rail {
+          position: absolute;
+          z-index: 12;
+          top: 22px;
+          left: 90px;
+          right: 90px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-family: "Space Mono", monospace;
+          font-size: 20px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          color: #3e4dc7;
+        }
+        .meta-rail .synthetic {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 18px;
+          border: 2px solid #d8daff;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.82);
+          color: #172033;
+          letter-spacing: 0.04em;
+        }
+        .meta-rail .synthetic::before {
+          content: "";
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #ffc231;
+          box-shadow: 0 0 0 8px rgba(255, 194, 49, 0.2);
+        }
+        .progress {
+          position: absolute;
+          z-index: 12;
+          left: 90px;
+          right: 90px;
+          bottom: 28px;
+          height: 18px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .progress-line {
+          position: relative;
+          flex: 1;
+          height: 3px;
+          background: #d8daff;
+          overflow: hidden;
+        }
+        .progress-fill {
+          position: absolute;
+          inset: 0 auto 0 0;
+          width: 0%;
+          background: #4f5fe7;
+        }
+        .progress-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #4f5fe7;
+        }
+        .progress-dot.gold { width: 14px; height: 14px; background: #ffc231; }
+        .scene {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+          overflow: hidden;
+        }
+        #scene-brand { opacity: 1; }
+        .screen-frame {
+          position: absolute;
+          left: 120px;
+          top: 58px;
+          width: 1680px;
+          height: 945px;
+          border: 2px solid #d8daff;
+          border-radius: 28px;
+          overflow: hidden;
+          background: #ffffff;
+          box-shadow: 0 30px 80px rgba(62, 77, 199, 0.18), 0 8px 24px rgba(23, 32, 51, 0.08);
+        }
+        .screen-frame img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transform-origin: 50% 50%;
+        }
+        .scene-caption {
+          position: absolute;
+          z-index: 15;
+          left: 150px;
+          bottom: 62px;
+          max-width: 1420px;
+          padding: 18px 28px 19px;
+          border: 2px solid #d8daff;
+          border-left: 10px solid #ffc231;
+          border-radius: 18px;
+          background: rgba(255, 253, 247, 0.95);
+          box-shadow: 0 14px 36px rgba(23, 32, 51, 0.12);
+          font-size: 38px;
+          font-weight: 700;
+          line-height: 1.28;
+          letter-spacing: -0.02em;
+        }
+        .scene-step {
+          position: absolute;
+          z-index: 16;
+          right: 140px;
+          bottom: 70px;
+          padding: 12px 18px;
+          border-radius: 14px;
+          background: #4f5fe7;
+          color: #ffffff;
+          font-family: "Space Mono", monospace;
+          font-size: 20px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+        }
+        .boundary-tags {
+          position: absolute;
+          z-index: 17;
+          top: 128px;
+          right: 155px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          align-items: flex-end;
+        }
+        .boundary-tag {
+          padding: 12px 18px;
+          border: 2px solid #ffc231;
+          border-radius: 999px;
+          background: rgba(255, 253, 247, 0.94);
+          color: #172033;
+          font-size: 22px;
+          font-weight: 700;
+          box-shadow: 0 10px 22px rgba(23, 32, 51, 0.09);
+        }
+        .brand-lockup {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          grid-template-columns: 560px 1fr;
+          align-items: center;
+          gap: 96px;
+          padding: 120px 180px;
+        }
+        .brand-mark-wrap {
+          position: relative;
+          width: 520px;
+          height: 520px;
+          display: grid;
+          place-items: center;
+        }
+        .brand-mark-wrap::before {
+          content: "";
+          position: absolute;
+          inset: 30px;
+          border: 3px solid #d8daff;
+          border-radius: 52px;
+          transform: rotate(-5deg);
+        }
+        .brand-mark {
+          position: relative;
+          width: 420px;
+          height: 420px;
+          border-radius: 52px;
+          box-shadow: 0 36px 90px rgba(79, 95, 231, 0.2);
+        }
+        .brand-copy { position: relative; z-index: 2; }
+        .chapter {
+          margin-bottom: 28px;
+          color: #3e4dc7;
+          font-family: "Space Mono", monospace;
+          font-size: 24px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
+        }
+        .brand-title {
+          max-width: 1020px;
+          font-size: 100px;
+          font-weight: 700;
+          line-height: 1.05;
+          letter-spacing: -0.045em;
+        }
+        .brand-slogan {
+          margin-top: 34px;
+          font-size: 42px;
+          font-weight: 400;
+          letter-spacing: 0.18em;
+        }
+        .brand-rule {
+          width: 590px;
+          height: 4px;
+          margin-top: 46px;
+          background: #ffc231;
+        }
+        .brand-signature {
+          margin-top: 24px;
+          color: #3e4dc7;
+          font-family: "Space Mono", monospace;
+          font-size: 22px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+        }
+        .brand-note {
+          position: absolute;
+          right: 180px;
+          bottom: 90px;
+          padding: 14px 20px;
+          border: 2px solid #d8daff;
+          border-radius: 999px;
+          background: #ffffff;
+          font-family: "Space Mono", monospace;
+          font-size: 20px;
+          letter-spacing: 0.05em;
+        }
+      </style>
+
+      <div id="root" data-composition-id="demo-sequence" data-width="1920" data-height="1080" data-duration="29">
+        <div class="paper-stage" data-layout-ignore>
+          <div class="orbit-a"></div>
+          <div class="orbit-b"></div>
+          <div class="register top-left"></div>
+          <div class="register bottom-right"></div>
+        </div>
+
+        <div class="scene" id="scene-brand">
+          <div class="brand-lockup">
+            <div class="brand-mark-wrap"><img class="brand-mark" src="assets/brand/xunqi-qidu-master.png" alt="讯栖 QIDU 品牌标志" /></div>
+            <div class="brand-copy">
+              <div class="chapter">栖 · CHAPTER 01</div>
+              <div class="brand-title">讯栖 XunQi</div>
+              <div class="brand-slogan">讯来有迹，文止于栖。</div>
+              <div class="brand-rule"></div>
+              <div class="brand-signature">A QIDU Utility</div>
+            </div>
+          </div>
+          <div class="brand-note">LOCAL-FIRST · EXPLICIT AUTHORIZATION</div>
+        </div>
+
+        <div class="scene" id="scene-intake">
+          <div class="meta-rail"><span>01 · LINK INTAKE</span><span class="synthetic">公开测试数据</span></div>
+          <div class="screen-frame"><img src="assets/screens/xunqi-02.png" alt="分享链接自动收取和分类界面" /></div>
+          <div class="scene-caption">复制微信分享链接，讯栖自动收取并分类</div>
+          <div class="scene-step">STEP 01</div>
+        </div>
+
+        <div class="scene" id="scene-article">
+          <div class="meta-rail"><span>02 · ARTICLE PREVIEW</span><span class="synthetic">公开测试数据</span></div>
+          <div class="screen-frame"><img src="assets/screens/xunqi-03.png" alt="公众号文章预览界面" /></div>
+          <div class="scene-caption">公开文章先预览，再由你决定是否导出</div>
+          <div class="scene-step">STEP 02</div>
+        </div>
+
+        <div class="scene" id="scene-export-choice">
+          <div class="meta-rail"><span>03 · EXPORT CHOICE</span><span class="synthetic">公开测试数据</span></div>
+          <div class="screen-frame"><img src="assets/screens/xunqi-04.png" alt="PDF 与 Markdown 导出方式界面" /></div>
+          <div class="scene-caption">PDF 保留原文结构，也可选择 Markdown + 本地图片</div>
+          <div class="scene-step">STEP 03</div>
+        </div>
+
+        <div class="scene" id="scene-export-done">
+          <div class="meta-rail"><span>04 · LOCAL RESULT</span><span class="synthetic">公开测试数据</span></div>
+          <div class="screen-frame"><img src="assets/screens/xunqi-05.png" alt="导出完成与打开保存位置界面" /></div>
+          <div class="scene-caption">导出完成后，保存位置清楚可见</div>
+          <div class="scene-step">STEP 04</div>
+        </div>
+
+        <div class="scene" id="scene-video">
+          <div class="meta-rail"><span>05 · PUBLIC VIDEO</span><span class="synthetic">公开测试数据</span></div>
+          <div class="screen-frame"><img src="assets/screens/xunqi-06.png" alt="公开视频直链状态界面" /></div>
+          <div class="scene-caption">视频号先检查公开直链，可用时直接下载到本地</div>
+          <div class="scene-step">STEP 05</div>
+        </div>
+
+        <div class="scene" id="scene-auth">
+          <div class="meta-rail"><span>06 · AUTHORIZATION BOUNDARY</span><span class="synthetic">公开测试数据</span></div>
+          <div class="screen-frame"><img src="assets/screens/xunqi-07.png" alt="授权嗅探与网络恢复说明界面" /></div>
+          <div class="boundary-tags">
+            <div class="boundary-tag">先关闭 VPN</div>
+            <div class="boundary-tag">Cookie 不落盘</div>
+            <div class="boundary-tag">演示不启动嗅探</div>
+          </div>
+          <div class="scene-caption">无公开直链时，必须明确授权；结束后恢复网络</div>
+          <div class="scene-step">STEP 06</div>
+        </div>
+
+        <div class="scene" id="scene-about">
+          <div class="meta-rail"><span>栖 · CHAPTER 01</span><span class="synthetic">A QIDU Utility</span></div>
+          <div class="screen-frame"><img src="assets/screens/xunqi-08.png" alt="讯栖 About 与 QIDU 署名界面" /></div>
+          <div class="scene-caption">讯来有迹，文止于栖。</div>
+          <div class="scene-step">QIDU</div>
+        </div>
+
+        <div class="progress" data-layout-ignore>
+          <div class="progress-dot gold"></div>
+          <div class="progress-line"><div class="progress-fill"></div></div>
+          <div class="progress-dot"></div><div class="progress-dot"></div><div class="progress-dot"></div><div class="progress-dot"></div><div class="progress-dot"></div><div class="progress-dot"></div>
+        </div>
+      </div>
+
+      <script>
+        window.__timelines = window.__timelines || {};
+        var demoTl = gsap.timeline({ paused: true });
+
+        function revealScene(previousSelector, nextSelector, at, duration) {
+          demoTl.to(previousSelector, {
+            filter: "blur(12px)",
+            scale: 1.025,
+            opacity: 0,
+            duration: duration,
+            ease: "power2.inOut"
+          }, at);
+          demoTl.fromTo(nextSelector,
+            { filter: "blur(12px)", scale: 0.985, opacity: 0 },
+            { filter: "blur(0px)", scale: 1, opacity: 1, duration: duration, ease: "power2.inOut" },
+            at + 0.08
+          );
+        }
+
+        function animateScreenshot(sceneSelector, at, duration, direction) {
+          demoTl.fromTo(sceneSelector + " .screen-frame img",
+            { scale: 1.0, x: direction * -10, y: 0 },
+            { scale: 1.032, x: direction * 14, y: -8, duration: duration, ease: "none" },
+            at
+          );
+          demoTl.fromTo(sceneSelector + " .scene-caption",
+            { y: 30, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.65, ease: "power3.out" },
+            at + 0.28
+          );
+          demoTl.fromTo(sceneSelector + " .scene-step",
+            { x: 26, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.5, ease: "back.out(1.35)" },
+            at + 0.48
+          );
+        }
+
+        demoTl.fromTo(".brand-mark", { scale: 0.82, opacity: 0, rotation: -4 }, { scale: 1, opacity: 1, rotation: 0, duration: 0.58, ease: "back.out(1.45)" }, 0);
+        demoTl.fromTo(".chapter", { x: 36, opacity: 0 }, { x: 0, opacity: 1, duration: 0.34, ease: "power3.out" }, 0.08);
+        demoTl.fromTo(".brand-title", { y: 42, opacity: 0 }, { y: 0, opacity: 1, duration: 0.44, ease: "power3.out" }, 0.18);
+        demoTl.fromTo(".brand-slogan", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: "power2.out" }, 0.38);
+        demoTl.fromTo(".brand-rule", { scaleX: 0, transformOrigin: "0% 50%" }, { scaleX: 1, duration: 0.42, ease: "power2.inOut" }, 0.48);
+        demoTl.fromTo(".brand-signature", { opacity: 0 }, { opacity: 1, duration: 0.32, ease: "power1.out" }, 0.7);
+        demoTl.fromTo(".brand-note", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.34, ease: "power2.out" }, 0.86);
+
+        revealScene("#scene-brand", "#scene-intake", 1.45, 0.38);
+        animateScreenshot("#scene-intake", 1.85, 4.25, -1);
+        revealScene("#scene-intake", "#scene-article", 6.0, 0.38);
+        animateScreenshot("#scene-article", 6.4, 4.0, 1);
+        revealScene("#scene-article", "#scene-export-choice", 10.2, 0.38);
+        animateScreenshot("#scene-export-choice", 10.6, 2.55, -1);
+        revealScene("#scene-export-choice", "#scene-export-done", 12.95, 0.38);
+        animateScreenshot("#scene-export-done", 13.35, 2.6, 1);
+        revealScene("#scene-export-done", "#scene-video", 15.75, 0.38);
+        animateScreenshot("#scene-video", 16.15, 4.6, -1);
+        revealScene("#scene-video", "#scene-auth", 20.55, 0.42);
+        animateScreenshot("#scene-auth", 21.0, 4.55, 1);
+        demoTl.fromTo("#scene-auth .boundary-tag", { x: 30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.34, stagger: 0.1, ease: "power3.out" }, 21.65);
+        revealScene("#scene-auth", "#scene-about", 25.4, 0.45);
+        animateScreenshot("#scene-about", 25.9, 2.9, -1);
+
+        demoTl.to(".progress-fill", { width: "100%", duration: 28.8, ease: "none" }, 0);
+        demoTl.to(".orbit-a", { x: -42, rotation: -6, duration: 29, ease: "none" }, 0);
+        demoTl.to(".orbit-b", { x: 36, rotation: 7, duration: 29, ease: "none" }, 0);
+
+        window.__timelines["demo-sequence"] = demoTl;
+      </script>
+    </template>
+  </body>
+</html>

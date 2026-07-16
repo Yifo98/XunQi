@@ -11,6 +11,17 @@
 
 ![讯栖公开演示界面](assets/reference/xunqi-public-demo.png)
 
+## 双语演示素材
+
+| 中文｜微信公众号 | English｜X |
+| --- | --- |
+| [![中文 29 秒演示](assets/publishing/zh/video/xunqi-demo-zh-preview.png)](assets/publishing/zh/video/xunqi-demo-zh.mp4) | [![English 29-second demo](assets/publishing/en/video/xunqi-demo-en-preview.png)](assets/publishing/en/video/xunqi-demo-en.mp4) |
+
+- 中文：[`8 张截图`](assets/publishing/zh/screenshots/) · [`29 秒 MP4`](assets/publishing/zh/video/xunqi-demo-zh.mp4) · [`SRT`](assets/publishing/zh/video/xunqi-demo-zh.srt)
+- English: [`8 screenshots`](assets/publishing/en/screenshots/) · [`29-second MP4`](assets/publishing/en/video/xunqi-demo-en.mp4) · [`SRT`](assets/publishing/en/video/xunqi-demo-en.srt)
+
+两套素材均来自真实运行的本地预览界面，并使用同一组虚构公开测试数据。生成方式、隐私边界和校验信息见 [双语发布素材说明](docs/PUBLISHING-ASSETS.md)。
+
 ## 下载预发布包
 
 | 平台 | 压缩包 | 当前状态 |
@@ -94,6 +105,7 @@ Windows 预发布包由 [Windows source preview](.github/workflows/windows-porta
 - [隐私说明](docs/PRIVACY.md)
 - [安全说明](docs/SECURITY.md)
 - [公众号评论能力研究](docs/COMMENT-RESEARCH.md)
+- [双语发布素材](docs/PUBLISHING-ASSETS.md)
 
 ## 许可证
 

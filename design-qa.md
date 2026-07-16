@@ -2,15 +2,15 @@
 
 **final result: passed**
 
-**验收日期：** 2026-07-15
+**验收日期：** 2026-07-16
 **验收分支：** `brand/qidu-refresh`
 **基准提交：** `77185ba01d81b68d7629f17980ea78af6e76a568`
 
 ## 比对条件
 
 - 用户最终视觉基准：`assets/reference/xunqi-qidu-brand-board.png`
-- 真实运行截图：执行包 `OUTPUT/Screenshots/xunqi-01.png` 至 `xunqi-08.png`
-- 品牌重点截图：执行包 `OUTPUT/Screenshots/xunqi-08.png`
+- 真实运行截图：`assets/publishing/zh/screenshots/` 与 `assets/publishing/en/screenshots/` 各 8 张
+- 品牌重点截图：`assets/publishing/{zh,en}/screenshots/xunqi-*-08.png`
 - 最终同屏对照：`output/design-qa/qidu-brand-comparison-02.png`
 - 视口：1920 × 1080
 - 状态：合成公开测试数据、文章预览、PDF / Markdown 导出、公开视频状态、授权说明、About
@@ -41,6 +41,7 @@
 - 公开视频状态会展示公开直链下载入口。
 - 无公开直链状态会先说明限制，并通过独立对话框解释临时代理、会话证书、VPN 冲突、Cookie 内存边界和网络恢复。
 - About 展示品牌释义、主动接收、本地归栖、明确授权与 QIDU 署名。
+- 英文界面保持与中文版本相同的任务状态、布局和授权边界，只替换公开演示语言。
 - 品牌刷新没有改写生产抓取、文章解析、导出、视频下载、证书安装或网络恢复逻辑。
 
 ## 有意保留的差异
