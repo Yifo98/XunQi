@@ -27,33 +27,34 @@
 | 平台 | 压缩包 | 当前状态 |
 | --- | --- | --- |
 | macOS Apple Silicon | `XunQi-0.5.0-beta.1-macOS-arm64-source-preview.zip` | 可运行源码预览；无 `.app` |
-| Windows x64 | `XunQi-0.5.0-beta.1-Windows-x64-source-preview.zip` | 原生 Windows 构建；待更多真机反馈 |
+| Windows | `XunQi-<版本>-Windows-source-BAT-preview.zip` | 待下一预发布；仅源码 + BAT，不含 EXE / 安装器 |
 
-请从 [GitHub Releases](https://github.com/Yifo98/XunQi/releases) 下载。所有公开版本暂时都标记为 **Pre-release**。
+请从 [GitHub Releases](https://github.com/Yifo98/XunQi/releases) 下载。当前 `v0.5.0-beta.1` 仅保留 macOS 包；Windows 源码 + BAT 包会在原生 Windows 流程验收后随下一预发布提供。所有公开版本暂时都标记为 **Pre-release**。
 
-两个 ZIP 都包含：
+macOS 包包含源码、运行文件和 `.command` 启动器。Windows 包调整为：
 
 ```text
-XunQi-版本-平台-source-preview/
-├── Launch-XunQi.command 或 Launch-XunQi.cmd
-├── README-平台.txt
-├── runtime/              # 运行所需文件
-└── source/               # 与本次发布对应的完整源码
+XunQi-版本-Windows-source-BAT-preview/
+├── Launch-XunQi.bat
+├── README-Windows.txt
+└── source/               # 与本次发布对应的完整源码；不含 EXE / MSI / CMD
 ```
 
-Mac 包不包含 `.app`。Windows 必须在 `runtime/` 中保留 `XunQi.exe`，这是 Windows 实际运行程序所需的文件格式；用户仍然只需解压 ZIP 并双击外层启动器，不需要安装。
+Windows 旧版 `runtime/XunQi.exe` 预发布物已经撤下。BAT 会检查 Node.js、pnpm 和 Rust，在本机从源码编译后启动；因此首次运行需要开发工具和网络连接。这减少了直接分发未知未签名 EXE 的问题，但 **BAT 不能绕过 Smart App Control**：Windows 仍可能检查 BAT 启动的工具和本地生成的程序。详见 [Smart App Control 评估](docs/SMART-APP-CONTROL.md)。
+
+当前 Windows 预览版没有商业代码签名。签名不是讯栖的功能依赖，在系统没有拦截时不影响功能使用；它主要用于让 Windows 验证发布者身份和文件完整性。“未签名”不等于恶意软件，也不会让讯栖获得额外权限。Windows 包源码公开可审阅，不读取微信聊天记录、通讯录、本地数据库或密码，不提供云端账号、远程数据库或遥测上报。若遇拦截，请按 [Windows 拦截处理步骤](docs/SMART-APP-CONTROL.md#用户遇到拦截时) 先核对来源、校验值和提示类型；讯栖不会自动关闭系统安全功能。
 
 ## 使用方法
 
 1. 完整解压 ZIP。
-2. macOS 双击 `Launch-XunQi.command`；Windows 双击 `Launch-XunQi.cmd`。
+2. macOS 双击 `Launch-XunQi.command`；Windows 安装 Node.js 22、pnpm 11、Rust stable 与 MSVC 构建工具后，双击 `Launch-XunQi.bat`。
 3. 在微信中复制分享链接：
    - 公众号：打开文章，点击右上角三个点或四个点，选择“复制链接”。
    - 视频号：点击分享箭头，选择“复制链接”。
 4. 微信位于前台时，讯栖会识别随后复制的新链接。也可以把链接直接粘贴到左侧搜索框。
 5. 查看识别结果后，再手动导出文章或下载视频。
 
-Windows 预发布版已经补上原生微信前台识别，支持 `WeChat.exe`、`Weixin.exe` 和视频号子进程 `WeChatAppEx.exe`。进入微信时程序只建立剪贴板基线，不会把旧链接误收取；随后复制的新链接才会进入任务列表。
+Windows 源码已经补上原生微信前台识别，支持 `WeChat.exe`、`Weixin.exe` 和视频号子进程 `WeChatAppEx.exe`。进入微信时程序只建立剪贴板基线，不会把旧链接误收取；随后复制的新链接才会进入任务列表。当前公开 Windows 包不再携带预编译的讯栖 EXE。
 
 ## 当前功能
 
@@ -74,7 +75,7 @@ Windows 预发布版已经补上原生微信前台识别，支持 `WeChat.exe`�
 | 公众号 PDF / Markdown 导出 | 支持 | 支持；PDF 依赖 Microsoft Edge |
 | 公开视频直链下载 | 支持 | 支持 |
 | 授权嗅探下载 | 支持 Apple Silicon 预览 | 暂不支持 |
-| 代码签名 / 公证 | 未公证 | 未签名 |
+| 代码签名 / 公证 | 未公证 | 不分发预编译 EXE；本地开发构建仍未签名 |
 
 微信公众号和视频号没有向第三方提供“输入名称即可持续连接并读取全部更新”的公开接口。讯栖只处理用户主动复制或粘贴的分享链接，不读取聊天记录、微信本地数据库或密码。
 
@@ -96,7 +97,13 @@ macOS 生成“源码＋运行文件＋启动器”预发布包：
 pnpm package:portable:mac
 ```
 
-Windows 预发布包由 [Windows source preview](.github/workflows/windows-portable.yml) 在原生 Windows Runner 构建。不要在 Mac 上把其他平台产物伪装成 Windows 包。
+Windows“源码 + BAT”候选包由 [Windows source and BAT preview](.github/workflows/windows-source-preview.yml) 在原生 Windows Runner 校验并生成：
+
+```powershell
+pnpm package:source:win
+```
+
+工作流会拒绝把 `.exe`、`.dll`、`.msi`、`.msix`、`.appx`、`.cmd` 等 Windows 可执行或安装文件放进 ZIP。不要把 BAT 描述成 Smart App Control 绕过方案，也不要在 Mac 上伪造 Windows 原生验收结果。
 
 ## 项目文档
 
@@ -106,6 +113,7 @@ Windows 预发布包由 [Windows source preview](.github/workflows/windows-porta
 - [安全说明](docs/SECURITY.md)
 - [公众号评论能力研究](docs/COMMENT-RESEARCH.md)
 - [双语发布素材](docs/PUBLISHING-ASSETS.md)
+- [Windows Smart App Control 评估](docs/SMART-APP-CONTROL.md)
 
 ## 许可证
 

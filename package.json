@@ -16,7 +16,7 @@
     "rust:test": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo test --manifest-path src-tauri/Cargo.toml",
     "check": "pnpm lint && pnpm typecheck && pnpm test:run && pnpm rust:test",
     "package:portable:mac": "bash scripts/package-macos-portable.sh",
-    "package:portable:win": "powershell -ExecutionPolicy Bypass -File scripts/package-windows-portable.ps1",
+    "package:source:win": "powershell -ExecutionPolicy Bypass -File scripts/package-windows-source.ps1",
     "publishing:render": "node scripts/publishing/render-public-demos.mjs",
     "preview": "vite preview",
     "tauri": "tauri"

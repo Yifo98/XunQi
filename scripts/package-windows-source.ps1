@@ -13,48 +13,51 @@ if ($Package.version -ne $Tauri.version -or $Package.version -ne $CargoVersion) 
 if ($Package.version -notmatch '-') { throw "公开包只允许预发布版本：$($Package.version)" }
 
 $Version = $Package.version
-$Exe = Join-Path $Root "src-tauri/target/release/xunqi.exe"
-if (-not (Test-Path $Exe -PathType Leaf)) { throw "没有找到 Windows 程序：$Exe" }
-
 $Release = Join-Path $Root "release"
-$Name = "XunQi-$Version-Windows-x64-source-preview"
+$Name = "XunQi-$Version-Windows-source-BAT-preview"
 $TempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
 $Stage = Join-Path $TempRoot $Name
-$Runtime = Join-Path $Stage "runtime"
 $Source = Join-Path $Stage "source"
-$SourceArchive = Join-Path $TempRoot "xunqi-source-$Version.zip"
+$SourceArchive = Join-Path $TempRoot "xunqi-source-$Version.tar"
 $Zip = Join-Path $Release "$Name.zip"
 $Checksum = "$Zip.sha256"
 
 Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $SourceArchive -Force -ErrorAction SilentlyContinue
-New-Item $Runtime -ItemType Directory -Force | Out-Null
 New-Item $Source -ItemType Directory -Force | Out-Null
 New-Item $Release -ItemType Directory -Force | Out-Null
 
-Copy-Item $Exe (Join-Path $Runtime "XunQi.exe")
-Copy-Item (Join-Path $Root "assets/portable/启动讯栖.cmd") (Join-Path $Stage "Launch-XunQi.cmd")
+Copy-Item (Join-Path $Root "assets/portable/启动讯栖.bat") (Join-Path $Stage "Launch-XunQi.bat")
 Copy-Item (Join-Path $Root "assets/portable/使用说明-Windows.txt") (Join-Path $Stage "README-Windows.txt")
 
-git -C $Root archive --format=zip HEAD -o $SourceArchive
+git -C $Root archive --format=tar HEAD -o $SourceArchive
 if ($LASTEXITCODE -ne 0) { throw "无法生成源码快照" }
-Expand-Archive -Path $SourceArchive -DestinationPath $Source -Force
+tar -xf $SourceArchive -C $Source
+if ($LASTEXITCODE -ne 0) { throw "无法展开源码快照" }
 Remove-Item $SourceArchive -Force
 
 Remove-Item $Zip, $Checksum -Force -ErrorAction SilentlyContinue
 Compress-Archive -Path $Stage -DestinationPath $Zip -CompressionLevel Optimal
+
 $Entries = [System.IO.Compression.ZipFile]::OpenRead($Zip)
 try {
   $Names = $Entries.Entries.FullName
   foreach ($Required in @(
-    "$Name/Launch-XunQi.cmd",
+    "$Name/Launch-XunQi.bat",
     "$Name/README-Windows.txt",
-    "$Name/runtime/XunQi.exe",
     "$Name/source/package.json",
     "$Name/source/src/App.tsx",
     "$Name/source/src-tauri/src/main.rs"
   )) {
     if ($Names -notcontains $Required) { throw "压缩包缺少：$Required" }
+  }
+
+  $ForbiddenExtensions = @(".exe", ".com", ".dll", ".msi", ".msp", ".mst", ".msix", ".appx", ".cmd")
+  foreach ($Entry in $Entries.Entries) {
+    $Extension = [System.IO.Path]::GetExtension($Entry.FullName).ToLowerInvariant()
+    if ($ForbiddenExtensions -contains $Extension) {
+      throw "源码包不应包含 Windows 可执行或安装文件：$($Entry.FullName)"
+    }
   }
 } finally {
   $Entries.Dispose()
@@ -63,5 +66,5 @@ try {
 $Hash = (Get-FileHash $Zip -Algorithm SHA256).Hash.ToLowerInvariant()
 $Line = "$Hash  $([System.IO.Path]::GetFileName($Zip))`n"
 [System.IO.File]::WriteAllText($Checksum, $Line, [System.Text.UTF8Encoding]::new($false))
-Write-Output "Windows 源码预发布包：$Zip"
+Write-Output "Windows 源码 + BAT 预发布包：$Zip"
 Write-Output "SHA-256：$Hash"
