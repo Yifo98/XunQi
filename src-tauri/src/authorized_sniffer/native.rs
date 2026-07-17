@@ -17,7 +17,7 @@ use crate::AppError;
 
 use super::{
     RuntimePreflight, RuntimeSnapshot, RuntimeStartRequest, SniffConflict, SniffOutput, SniffPhase,
-    SniffProgress, SniffRecoveryResult, SnifferRuntime,
+    SniffProgress, SniffQualityMode, SniffRecoveryResult, SnifferRuntime,
 };
 
 const HELPER_SOURCE: &str = "ltaoo/wx_channels_download v260706";
@@ -59,6 +59,7 @@ struct NativeSession {
     api_failure_count: u8,
     share_submit_failure_count: u8,
     started_at: Instant,
+    quality_mode: SniffQualityMode,
     journal: RecoveryJournal,
 }
 
@@ -229,6 +230,11 @@ impl NativeSnifferRuntime {
                         "上一次连续下载会话已失效，请先恢复网络后重试".into(),
                     ));
                 }
+                if session.quality_mode != request.quality_mode {
+                    return Err(AppError::Validation(
+                        "连续授权期间不能切换画质；请先结束并恢复网络，再用新画质重新启用".into(),
+                    ));
+                }
                 session.id = request.session_id.clone();
                 session.destination_dir = request.destination_dir.clone();
                 session.expected_title = request.expected_title.clone();
@@ -314,6 +320,7 @@ impl NativeSnifferRuntime {
                     proxy_port,
                     upstream_proxy.as_deref(),
                     &guide_script_path,
+                    request.quality_mode,
                 ),
             )?;
             discard_upstream_log(&session_dir)?;
@@ -360,6 +367,7 @@ impl NativeSnifferRuntime {
             api_failure_count: 0,
             share_submit_failure_count: 0,
             started_at: Instant::now(),
+            quality_mode: request.quality_mode,
             journal,
         };
         let helper_page_url = format!("http://127.0.0.1:{api_port}/download");
@@ -853,10 +861,12 @@ fn helper_config(
     proxy_port: u16,
     upstream_proxy: Option<&str>,
     guide_script: &Path,
+    quality_mode: SniffQualityMode,
 ) -> String {
     format!(
-        "debug:\n  error: false\n  echolog: false\npagespy:\n  enabled: false\ninject:\n  globalScript: {}\ndownload:\n  defaultHighest: true\n  dir: {}\n  playDoneAudio: false\n  frontend: false\napi:\n  protocol: http\n  hostname: 127.0.0.1\n  port: {api_port}\nupdate:\n  proxy: \"\"\n  mirror: \"\"\nproxy:\n  system: false\n  hostname: 127.0.0.1\n  port: {proxy_port}\n  tun: false\n  skipInstallRootCert: true\n  upstreamProxy: {}\ncert:\n  file: {}\n  key: {}\n  name: {}\nmp:\n  enabled: false\ncloudflare:\n  accountId: \"\"\n  apiToken: \"\"\n",
+        "debug:\n  error: false\n  echolog: false\npagespy:\n  enabled: false\ninject:\n  globalScript: {}\ndownload:\n  defaultHighest: {}\n  dir: {}\n  playDoneAudio: false\n  frontend: false\napi:\n  protocol: http\n  hostname: 127.0.0.1\n  port: {api_port}\nupdate:\n  proxy: \"\"\n  mirror: \"\"\nproxy:\n  system: false\n  hostname: 127.0.0.1\n  port: {proxy_port}\n  tun: false\n  skipInstallRootCert: true\n  upstreamProxy: {}\ncert:\n  file: {}\n  key: {}\n  name: {}\nmp:\n  enabled: false\ncloudflare:\n  accountId: \"\"\n  apiToken: \"\"\n",
         yaml_string(guide_script),
+        matches!(quality_mode, SniffQualityMode::Original),
         yaml_string(destination),
         yaml_string(Path::new(upstream_proxy.unwrap_or(""))),
         yaml_string(certificate),
@@ -1480,7 +1490,7 @@ fn completed_output_from_paths(
         quality_label: if spec.is_empty() {
             "原始画质".into()
         } else {
-            format!("微信规格 {spec}")
+            format!("节省空间（微信默认规格 {spec}）")
         },
         width: dimensions.map(|value| value.0),
         height: dimensions.map(|value| value.1),
@@ -1887,6 +1897,7 @@ mod tests {
             22023,
             Some("http://127.0.0.1:7890"),
             Path::new("/tmp/xunqi-guide.js"),
+            SniffQualityMode::Original,
         );
         assert!(config.contains("skipInstallRootCert: true"));
         assert!(config.contains("pagespy:\n  enabled: false"));
@@ -1897,6 +1908,35 @@ mod tests {
         assert!(!config.contains("Authorization"));
         assert!(HELPER_GUIDE_SCRIPT.contains("按已复制的分享链接自动处理"));
         assert!(!HELPER_GUIDE_SCRIPT.contains("提交 issue"));
+    }
+
+    #[test]
+    fn quality_mode_controls_the_helpers_real_download_preference() {
+        let original = helper_config(
+            Path::new("/tmp/output"),
+            Path::new("/tmp/cert.pem"),
+            Path::new("/tmp/key.pem"),
+            "XunQi-session",
+            22022,
+            22023,
+            None,
+            Path::new("/tmp/xunqi-guide.js"),
+            SniffQualityMode::Original,
+        );
+        let space_saver = helper_config(
+            Path::new("/tmp/output"),
+            Path::new("/tmp/cert.pem"),
+            Path::new("/tmp/key.pem"),
+            "XunQi-session",
+            22022,
+            22023,
+            None,
+            Path::new("/tmp/xunqi-guide.js"),
+            SniffQualityMode::SpaceSaver,
+        );
+
+        assert!(original.contains("defaultHighest: true"));
+        assert!(space_saver.contains("defaultHighest: false"));
     }
 
     #[test]

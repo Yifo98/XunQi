@@ -1,4 +1,4 @@
-name: Windows source and BAT preview
+name: Windows source and BAT package
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  build-windows-source-preview:
+  build-windows-source-package:
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
@@ -19,7 +19,7 @@ jobs:
         shell: pwsh
         run: |
           $Version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          "name=XunQi-$Version-Windows-source-BAT-preview" >> $env:GITHUB_OUTPUT
+          "name=XunQi-$Version-Windows-x64-source-BAT" >> $env:GITHUB_OUTPUT
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -48,7 +48,7 @@ jobs:
         shell: pwsh
         run: ./scripts/package-windows-source.ps1
 
-      - name: Upload Windows source candidate
+      - name: Upload Windows source package
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.package.outputs.name }}

@@ -13,8 +13,8 @@ if [[ "$VERSION" != "$PACKAGE_VERSION" || "$VERSION" != "$CARGO_VERSION" ]]; the
   exit 1
 fi
 
-if [[ "$VERSION" != *-* ]]; then
-  echo "公开包只允许预发布版本，当前版本：$VERSION" >&2
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+  echo "版本号不是可发布的 SemVer：$VERSION" >&2
   exit 1
 fi
 
@@ -29,7 +29,7 @@ case "$MACHINE_ARCH" in
     TARGET_TRIPLE="aarch64-apple-darwin"
     ;;
   *)
-    echo "当前预发布包只支持 macOS Apple Silicon，当前架构：$MACHINE_ARCH" >&2
+    echo "当前 macOS 包只支持 Apple Silicon，当前架构：$MACHINE_ARCH" >&2
     exit 1
     ;;
 esac
@@ -45,10 +45,10 @@ MAIN_BINARY="$ROOT_DIR/src-tauri/target/release/xunqi"
 PDF_HELPER="$ROOT_DIR/src-tauri/bin/xunqi-pdf-renderer-$TARGET_TRIPLE"
 SNIFFER_HELPER="$ROOT_DIR/src-tauri/bin/xunqi-authorized-sniffer-$TARGET_TRIPLE"
 OUTPUT_DIR="$ROOT_DIR/release"
-PACKAGE_NAME="XunQi-$VERSION-macOS-$PACKAGE_ARCH-source-preview"
+PACKAGE_NAME="XunQi-$VERSION-macOS-$PACKAGE_ARCH-source"
 ZIP_PATH="$OUTPUT_DIR/$PACKAGE_NAME.zip"
 CHECKSUM_PATH="$ZIP_PATH.sha256"
-STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/xunqi-source-preview.XXXXXX")"
+STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/xunqi-source-release.XXXXXX")"
 
 cleanup() {
   rm -rf "$STAGING_ROOT"
@@ -142,5 +142,5 @@ done
 CHECKSUM="$(shasum -a 256 "$ZIP_PATH" | awk '{print $1}')"
 printf '%s  %s\n' "$CHECKSUM" "$(basename "$ZIP_PATH")" > "$CHECKSUM_PATH"
 
-echo "macOS 源码预发布包：$ZIP_PATH"
+echo "macOS 正式源码包：$ZIP_PATH"
 echo "SHA-256：$CHECKSUM"

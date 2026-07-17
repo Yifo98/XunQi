@@ -9,8 +9,8 @@ use crate::{
     downloader::MediaDownloader, export_manager::ExportManager, intake::IntakeModule,
     pdf_renderer::PdfRenderer, processor::CaptureProcessor, store::SqliteStore, AppError,
     ArticleExportMode, AuthorizedSniffer, CaptureStatus, CaptureTaskDetail, OutputResult,
-    SniffAuthorizationPlan, SniffPhase, SniffRecoveryResult, SniffSessionSnapshot,
-    SubmitLinksResult,
+    SniffAuthorizationPlan, SniffPhase, SniffQualityMode, SniffRecoveryResult,
+    SniffSessionSnapshot, SubmitLinksResult,
 };
 
 #[derive(Clone)]
@@ -117,9 +117,11 @@ impl Application {
         task_id: i64,
         plan_id: &str,
         directory: impl AsRef<Path>,
+        quality_mode: SniffQualityMode,
     ) -> Result<SniffSessionSnapshot, AppError> {
         let detail = self.store.get_detail(task_id)?;
-        self.sniffer.start(&detail, plan_id, directory)
+        self.sniffer
+            .start(&detail, plan_id, directory, quality_mode)
     }
 
     pub fn get_video_sniff_session(

@@ -10,11 +10,13 @@ $CargoVersion = $CargoVersion.Matches[0].Groups[1].Value
 if ($Package.version -ne $Tauri.version -or $Package.version -ne $CargoVersion) {
   throw "版本号不一致：package=$($Package.version) tauri=$($Tauri.version) cargo=$CargoVersion"
 }
-if ($Package.version -notmatch '-') { throw "公开包只允许预发布版本：$($Package.version)" }
+if ($Package.version -notmatch '^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$') {
+  throw "版本号不是可发布的 SemVer：$($Package.version)"
+}
 
 $Version = $Package.version
 $Release = Join-Path $Root "release"
-$Name = "XunQi-$Version-Windows-source-BAT-preview"
+$Name = "XunQi-$Version-Windows-x64-source-BAT"
 $TempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
 $Stage = Join-Path $TempRoot $Name
 $Source = Join-Path $Stage "source"
@@ -66,5 +68,5 @@ try {
 $Hash = (Get-FileHash $Zip -Algorithm SHA256).Hash.ToLowerInvariant()
 $Line = "$Hash  $([System.IO.Path]::GetFileName($Zip))`n"
 [System.IO.File]::WriteAllText($Checksum, $Line, [System.Text.UTF8Encoding]::new($false))
-Write-Output "Windows 源码 + BAT 预发布包：$Zip"
+Write-Output "Windows 源码 + BAT 包：$Zip"
 Write-Output "SHA-256：$Hash"

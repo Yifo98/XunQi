@@ -11,8 +11,9 @@
 
 - `xunqi-qidu-master.png`：1254×1254 品牌母版，来自小夫确认的方向板与本轮生产草案。
 - `xunqi-ui.png`：256×256 界面用图标。
+- `xunqi-dock.png`：512×512 Dock 图标，保留圆角暖白底板与约 9% 的透明安全边距。供不使用 `.app` 的 macOS 裸二进制设置图标，既不显示方形白边、不让字标直接浮在桌面上，也避免在 Dock 中比相邻应用显得过大。
 - `xunqi-icon-direction.png`：上一版方向记录，仅供历史对照，不再用于应用界面。
-- `src-tauri/icons/`：由母版统一生成 Tauri 当前配置使用的 macOS、Windows 与小尺寸图标。
+- `src-tauri/icons/`：由 `xunqi-dock.png` 统一生成 Tauri 当前配置使用的 macOS、Windows 与小尺寸图标。
 
 ## 必须保留
 

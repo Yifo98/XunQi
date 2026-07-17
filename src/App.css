@@ -366,6 +366,81 @@ select:focus-visible {
   font-weight: 700;
 }
 
+.bulk-selection-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 26px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bulk-selection-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 10px;
+  color: #625d79;
+  background: #fff;
+  border: 1px solid #ddd8ef;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.bulk-selection-row button:hover:not(:disabled),
+.bulk-selection-row button.bulk-selection-active {
+  color: var(--violet);
+  background: #f1edff;
+  border-color: #d5ccff;
+}
+
+.bulk-selection-row button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.bulk-selection-row button.bulk-clear-all {
+  min-height: auto;
+  padding: 4px 2px;
+  color: #6b6285;
+  background: transparent;
+  border: 0;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.bulk-selection-row button.bulk-clear-all:hover:not(:disabled) {
+  color: var(--violet);
+  background: transparent;
+}
+
+.bulk-selection-mark {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: #fff;
+  border: 1px solid #aaa3c2;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.bulk-selection-active .bulk-selection-mark {
+  background: var(--violet);
+  border-color: var(--violet);
+}
+
+.bulk-selection-row small {
+  color: #9691a6;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
 .task-groups {
   flex: 1;
   min-height: 0;
@@ -1674,6 +1749,15 @@ select:focus-visible {
   outline: 0;
   color: inherit;
   background: transparent;
+}
+
+.quality-select {
+  min-width: 220px;
+}
+
+.quality-select select:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .detail-action-buttons {

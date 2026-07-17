@@ -1,4 +1,4 @@
-讯栖 · Windows 源码 + BAT 预发布版
+讯栖 · Windows 源码 + BAT 候选包
 
 使用方法
 1. 完整解压 ZIP，不要在压缩包内直接运行。
@@ -13,7 +13,7 @@
 - source 不含 .git、node_modules、构建缓存和用户数据。
 
 智能应用控制说明
-- 当前预览版没有 Windows 商业代码签名。签名用于让 Windows 验证发布者身份和文件是否被篡改，不是讯栖的功能依赖，也不会赋予软件额外的系统权限；在 Windows 没有拦截的环境中，未签名不影响功能本身。
+- 当前候选包没有 Windows 商业代码签名。签名用于让 Windows 验证发布者身份和文件是否被篡改，不是讯栖的功能依赖，也不会赋予软件额外的系统权限；在 Windows 没有拦截的环境中，未签名不影响功能本身。
 - BAT 本身不等于受信任应用，也不能绕过 Windows Smart App Control。
 - BAT 启动的 Node.js、pnpm、Rust 工具和本地编译出的讯栖程序仍可能被 Windows 检查。
 - “未签名”不等于恶意软件，但新项目缺少下载声誉时更容易触发 Windows 提醒或拦截。
@@ -26,13 +26,13 @@
 5. 公司或学校电脑若由 App Control 管理，请联系管理员加入允许列表；不要自行削弱组织策略。
 6. 如果 Defender 明确报告木马、恶意软件或潜在有害程序，请停止运行，不要强行放行，并向项目 Issue 提交脱敏截图和校验值。
 
-Preview 已支持
+候选源码已支持
 - 公众号公开文章读取。
 - Markdown + 本地图片导出。
 - 已安装 Microsoft Edge 时导出原版 PDF。
 - 页面公开 HTTPS 直链视频的手动下载。
 
-Preview 暂未对齐 macOS
+候选源码暂未对齐 macOS
 - 不包含 macOS 专用的视频号授权嗅探助手。
 - 本地开发构建未进行 Windows 代码签名，仍可能被 SmartScreen、Smart App Control 或企业 App Control 策略拦截。
 

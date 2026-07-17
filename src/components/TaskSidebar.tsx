@@ -31,11 +31,15 @@ type TaskSidebarProps = {
   selectedCount: number;
   selectedArticleCount: number;
   selectedVideoCount: number;
+  visibleTaskCount: number;
+  allVisibleSelected: boolean;
   batchBusy: boolean;
   onQueryChange: (value: string) => void;
   onFilterChange: (filter: KindFilter) => void;
   onActivate: (taskId: number) => void;
   onToggleSelected: (taskId: number) => void;
+  onToggleVisibleSelection: () => void;
+  onClearSelection: () => void;
   onToggleSource: (sourceName: string) => void;
   onClearSelected: () => void;
   onClearCompleted: () => void;
@@ -55,17 +59,26 @@ export function TaskSidebar({
   selectedCount,
   selectedArticleCount,
   selectedVideoCount,
+  visibleTaskCount,
+  allVisibleSelected,
   batchBusy,
   onQueryChange,
   onFilterChange,
   onActivate,
   onToggleSelected,
+  onToggleVisibleSelection,
+  onClearSelection,
   onToggleSource,
   onClearSelected,
   onClearCompleted,
   onCollapse,
 }: TaskSidebarProps) {
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  const visibleSelectedCount = groups.reduce(
+    (count, group) => count + group.tasks.filter(({ task }) => selectedTaskIds.has(task.id)).length,
+    0,
+  );
+  const hasHiddenSelection = selectedCount > visibleSelectedCount;
 
   return (
     <aside className="task-sidebar" aria-label="捕获任务">
@@ -105,6 +118,35 @@ export function TaskSidebar({
           视频号 <span>{videoCount}</span>
         </FilterTab>
       </div>
+
+      {visibleTaskCount > 0 && (
+        <div className="bulk-selection-row">
+          <button
+            type="button"
+            className={allVisibleSelected ? "bulk-selection-active" : ""}
+            aria-pressed={allVisibleSelected}
+            onClick={onToggleVisibleSelection}
+            disabled={batchBusy}
+          >
+            <span className="bulk-selection-mark" aria-hidden="true">{allVisibleSelected ? "✓" : ""}</span>
+            {allVisibleSelected
+              ? `${hasHiddenSelection ? "取消当前" : "取消全选"}${filterLabel(filter)} ${visibleTaskCount} 项`
+              : `全选${filterLabel(filter)} ${visibleTaskCount} 项`}
+          </button>
+          {hasHiddenSelection ? (
+            <button
+              type="button"
+              className="bulk-clear-all"
+              onClick={onClearSelection}
+              disabled={batchBusy}
+            >
+              取消全部已选 {selectedCount} 项
+            </button>
+          ) : (
+            <small>切换分类后仍保留已选项</small>
+          )}
+        </div>
+      )}
 
       <div className="task-groups">
         {groups.length === 0 ? (
@@ -210,6 +252,14 @@ export function TaskSidebar({
       </div>
     </aside>
   );
+}
+
+function filterLabel(filter: KindFilter) {
+  return {
+    all: "全部",
+    article: "公众号",
+    video: "视频号",
+  }[filter];
 }
 
 function toggleSource(values: Set<string>, sourceName: string) {
