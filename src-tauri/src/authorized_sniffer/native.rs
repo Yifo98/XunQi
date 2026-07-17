@@ -714,6 +714,13 @@ impl NativeSnifferRuntime {
     }
 }
 
+fn platform_sniffer_unavailability(target_os: &str) -> Option<SniffConflict> {
+    (target_os == "windows").then(|| SniffConflict {
+        code: "windows_sniffer_unavailable".into(),
+        message: "Windows 测试版暂未提供授权嗅探下载；这不是 WebView2 缺失，重新解压或安装 WebView2 不会解决。公众号导出和公开视频直链下载仍可正常使用。".into(),
+    })
+}
+
 impl SnifferRuntime for NativeSnifferRuntime {
     fn preflight(&self) -> Result<RuntimePreflight, SniffConflict> {
         if let Ok(mut guard) = self.session.lock() {
@@ -750,6 +757,9 @@ impl SnifferRuntime for NativeSnifferRuntime {
                 code: "recovery_required".into(),
                 message: "发现上次未完成的授权会话，请先点击恢复网络设置".into(),
             });
+        }
+        if let Some(conflict) = platform_sniffer_unavailability(std::env::consts::OS) {
+            return Err(conflict);
         }
         let helper = self.helper_path()?;
         self.verify_helper(&helper)?;
@@ -1826,6 +1836,15 @@ mod tests {
         sync::mpsc,
     };
     use tempfile::tempdir;
+
+    #[test]
+    fn reports_the_windows_sniffer_boundary_without_blaming_webview() {
+        let conflict = platform_sniffer_unavailability("windows").unwrap();
+        assert_eq!(conflict.code, "windows_sniffer_unavailable");
+        assert!(conflict.message.contains("这不是 WebView2 缺失"));
+        assert!(conflict.message.contains("公众号导出"));
+        assert!(platform_sniffer_unavailability("macos").is_none());
+    }
 
     #[test]
     fn submits_the_saved_share_url_and_binds_the_exact_helper_task() {

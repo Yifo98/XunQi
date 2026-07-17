@@ -9,6 +9,11 @@ const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "
 const windowsConfig = JSON.parse(
   await readFile(path.join(root, "src-tauri", "tauri.windows.conf.json"), "utf8"),
 );
+const packager = await readFile(path.join(root, "scripts", "package-windows-runtime.ps1"), "utf8");
+const snifferRuntime = await readFile(
+  path.join(root, "src-tauri", "src", "authorized_sniffer", "native.rs"),
+  "utf8",
+);
 const launcher = await readFile(launcherPath);
 const logLauncher = await readFile(logLauncherPath);
 const text = launcher.toString("ascii");
@@ -37,8 +42,20 @@ if (!logText.includes("explorer.exe")) failures.push("log folder launcher does n
 if (windowsConfig.build?.beforeBuildCommand !== "pnpm build") {
   failures.push("Windows runtime build must not invoke macOS native-helper scripts");
 }
-if (!Array.isArray(windowsConfig.bundle?.externalBin) || windowsConfig.bundle.externalBin.length !== 0) {
-  failures.push("Windows runtime build must not bundle macOS-only sidecars");
+if (
+  !Array.isArray(windowsConfig.bundle?.externalBin)
+  || windowsConfig.bundle.externalBin.length !== 0
+) {
+  failures.push("Windows runtime must not bundle the unsupported macOS sniffer sidecar");
+}
+if (!snifferRuntime.includes('code: "windows_sniffer_unavailable"')) {
+  failures.push("Windows must report an explicit unsupported-platform conflict");
+}
+if (!snifferRuntime.includes("这不是 WebView2 缺失")) {
+  failures.push("Windows conflict must distinguish authorized sniffing from WebView2");
+}
+for (const forbidden of ["xunqi-authorized-sniffer.exe", "THIRD-PARTY-wx_channels_download.txt"]) {
+  if (packager.includes(forbidden)) failures.push(`Windows portable package must not include ${forbidden}`);
 }
 
 if (failures.length > 0) {
@@ -46,4 +63,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Windows runtime launchers passed: ASCII, CRLF, prebuilt runtime only, local log access.");
+console.log("Windows runtime launchers passed: prebuilt app, local log access, and an explicit sniffer boundary.");

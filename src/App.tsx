@@ -19,6 +19,7 @@ import "./App.css";
 import { BrandAboutDialog } from "./components/BrandAboutDialog";
 import { TaskDetail } from "./components/TaskDetail";
 import { TaskSidebar, type KindFilter } from "./components/TaskSidebar";
+import { LanguageProvider, useI18n } from "./i18n";
 import {
   isTauriRuntime,
   tauriBackend,
@@ -34,6 +35,7 @@ import { createPreviewBackend } from "./lib/previewBackend";
 
 type AppProps = {
   backend?: Backend;
+  platform?: "macos" | "windows" | "other";
 };
 
 type SniffQueueState = {
@@ -46,7 +48,9 @@ type SniffQueueState = {
 
 const defaultBackend = isTauriRuntime() ? tauriBackend : createPreviewBackend();
 
-function App({ backend = defaultBackend }: AppProps) {
+function AppContent({ backend = defaultBackend, platform = detectPlatform() }: AppProps) {
+  const { language, setLanguage, text } = useI18n();
+  const authorizedSniffSupported = platform === "macos";
   const [tasks, setTasks] = useState<CaptureTaskDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -160,7 +164,15 @@ function App({ backend = defaultBackend }: AppProps) {
       void backend.prepareVideoSniff(nextTaskId).then(async (plan) => {
         if (!plan.canStart) {
           setSniffQueue({ ...nextQueue, status: "stopped" });
-          setToast({ kind: "error", message: plan.conflict?.message ?? "队列中的下一条无法启动" });
+          setToast({
+            kind: "error",
+            message: sniffConflictMessage(
+              plan.conflict,
+              language,
+              "队列中的下一条无法启动",
+              "The next queue item cannot start",
+            ),
+          });
           return;
         }
         if (!plan.reusesAuthorization) {
@@ -182,7 +194,7 @@ function App({ backend = defaultBackend }: AppProps) {
       });
     }, 0);
     return () => window.clearTimeout(advanceTimer);
-  }, [backend, reload, sniffQueue, sniffSession, videoQualityMode]);
+  }, [backend, language, reload, sniffQueue, sniffSession, videoQualityMode]);
 
   const replaceTask = useCallback((next: CaptureTaskDetail) => {
     setTasks((current) => {
@@ -395,9 +407,11 @@ function App({ backend = defaultBackend }: AppProps) {
   const selectedVideoCount = tasks.filter(
     ({ task }) => task.kind === "video" && selectedTaskIds.has(task.id),
   ).length;
-  const selectedSniffVideoCount = tasks.filter(
-    (detail) => selectedTaskIds.has(detail.task.id) && needsAuthorizedSniffDownload(detail),
-  ).length;
+  const selectedSniffVideoCount = authorizedSniffSupported
+    ? tasks.filter(
+        (detail) => selectedTaskIds.has(detail.task.id) && needsAuthorizedSniffDownload(detail),
+      ).length
+    : 0;
   const selectedSkippedVideoCount = selectedVideoCount - selectedSniffVideoCount;
   const activeBusy = activeTaskId !== null && busyTaskIds.has(activeTaskId);
   const visibleTaskIds = filteredTasks.map(({ task }) => task.id);
@@ -451,7 +465,12 @@ function App({ backend = defaultBackend }: AppProps) {
         if (plan.conflict?.code === "recovery_required") setSniffRecoveryNeeded(true);
         setToast({
           kind: "error",
-          message: plan.conflict?.message ?? "当前不能安全启用授权嗅探助手，可稍后重试或打开微信原文。",
+          message: sniffConflictMessage(
+            plan.conflict,
+            language,
+            "当前不能安全启用授权嗅探助手，可稍后重试或打开微信原文。",
+            "Authorized detection cannot be enabled safely right now. Try again later or open the original in WeChat.",
+          ),
         });
         return;
       }
@@ -532,7 +551,12 @@ function App({ backend = defaultBackend }: AppProps) {
         setSniffQueue({ ...queue, status: "stopped" });
         setToast({
           kind: "error",
-          message: plan.conflict?.message ?? "当前不能启动连续下载队列",
+          message: sniffConflictMessage(
+            plan.conflict,
+            language,
+            "当前不能启动连续下载队列",
+            "The continuous download queue cannot start",
+          ),
         });
         return;
       }
@@ -721,7 +745,7 @@ function App({ backend = defaultBackend }: AppProps) {
       <div className="app-loading">
         <img src={logoUrl} alt="讯栖" />
         <SpinnerGapIcon className="spin" size={24} />
-        <p>正在打开微信捕获队列…</p>
+        <p>{text("正在打开微信捕获队列…", "Opening the WeChat capture queue…")}</p>
       </div>
     );
   }
@@ -730,9 +754,9 @@ function App({ backend = defaultBackend }: AppProps) {
     return (
       <div className="app-loading app-error">
         <WarningCircleIcon size={42} weight="fill" />
-        <h1>没有读取到本地任务</h1>
-        <p>{loadError}</p>
-        <button type="button" onClick={() => window.location.reload()}>重新打开</button>
+        <h1>{text("没有读取到本地任务", "Local tasks could not be loaded")}</h1>
+        <p>{localizeRuntimeMessage(loadError, language, "error")}</p>
+        <button type="button" onClick={() => window.location.reload()}>{text("重新打开", "Reopen")}</button>
       </div>
     );
   }
@@ -747,7 +771,7 @@ function App({ backend = defaultBackend }: AppProps) {
               <strong>讯栖 <span lang="en">XunQi</span></strong>
               <b>栖</b>
             </div>
-            <span>讯来有迹，文止于栖。</span>
+            <span>{text("讯来有迹，文止于栖。", "Messages traced, stories at rest.")}</span>
             <small>A QIDU Utility</small>
           </div>
         </div>
@@ -758,22 +782,41 @@ function App({ backend = defaultBackend }: AppProps) {
         </div>
         <div className="listening-status">
           <div className="listening-status-top">
-            <button type="button" className="about-button" onClick={() => setShowAbout(true)}>
-              <InfoIcon size={17} weight="bold" />
-              <span>关于</span>
+            <button
+              type="button"
+              className="language-toggle"
+              aria-label={language === "zh" ? "切换为英文" : "Switch to Chinese"}
+              title={language === "zh" ? "切换为英文" : "Switch to Chinese"}
+              onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
+            >
+              <span aria-hidden="true">{language === "zh" ? "EN" : "中"}</span>
             </button>
             <button
               type="button"
               className="about-button"
+              aria-label={text("关于", "About")}
+              onClick={() => setShowAbout(true)}
+            >
+              <InfoIcon size={17} weight="bold" />
+              <span>{text("关于", "About")}</span>
+            </button>
+            <button
+              type="button"
+              className="about-button"
+              aria-label={diagnosticsBusy
+                ? text("导出中", "Exporting")
+                : text("导出日志", "Export Logs")}
               onClick={() => void handleExportDiagnostics()}
               disabled={diagnosticsBusy}
             >
               <FileArrowDownIcon size={17} weight="bold" />
-              <span>{diagnosticsBusy ? "导出中" : "导出日志"}</span>
+              <span>{diagnosticsBusy
+                ? text("导出中", "Exporting")
+                : text("导出日志", "Export Logs")}</span>
             </button>
             <button type="button" className="link-guide-button" onClick={() => setShowLinkGuide(true)}>
               <QuestionIcon size={17} weight="bold" />
-              如何复制链接
+              {text("如何复制链接", "How to Copy Links")}
             </button>
             {sniffSession?.authorizationReusable && (
               <button
@@ -781,12 +824,12 @@ function App({ backend = defaultBackend }: AppProps) {
                 className="sniff-active-pill"
                 onClick={() => void handleStopSniff(sniffSession.sessionId)}
               >
-                连续授权已开 · 结束
+                {text("连续授权已开 · 结束", "Continuous Access On · End")}
               </button>
             )}
-            <strong><CheckCircleIcon size={18} weight="fill" />微信监听中</strong>
+            <strong><CheckCircleIcon size={18} weight="fill" />{text("微信监听中", "Listening to WeChat")}</strong>
           </div>
-          <p>{listeningActivity}</p>
+          <p>{localizeListeningActivity(listeningActivity, language)}</p>
         </div>
       </header>
 
@@ -840,7 +883,7 @@ function App({ backend = defaultBackend }: AppProps) {
             onCollapse={() => setSidebarCollapsed(true)}
           />
         ) : (
-          <button type="button" className="expand-sidebar" onClick={() => setSidebarCollapsed(false)} aria-label="展开任务列表">
+          <button type="button" className="expand-sidebar" onClick={() => setSidebarCollapsed(false)} aria-label={text("展开任务列表", "Expand task list")}>
             <CaretRightIcon size={21} weight="bold" />
             <span>{tasks.length}</span>
           </button>
@@ -855,6 +898,7 @@ function App({ backend = defaultBackend }: AppProps) {
           onStopSniff={(sessionId) => void handleStopSniff(sessionId)}
           onRecoverSniff={() => void handleRecoverSniff()}
           sniffSession={sniffSession}
+          authorizedSniffSupported={authorizedSniffSupported}
           videoQualityMode={videoQualityMode}
           onVideoQualityModeChange={setVideoQualityMode}
           onOpenOriginal={(url) => void handleOpenExternal(url, "微信原文")}
@@ -871,11 +915,7 @@ function App({ backend = defaultBackend }: AppProps) {
             selectedCount: selectedSniffVideoCount,
             skippedCount: selectedSkippedVideoCount,
             running: sniffQueue?.status === "running" || sniffQueue?.status === "awaiting_authorization",
-            progressLabel: sniffQueue
-              ? sniffQueue.status === "completed"
-                ? `队列完成 ${sniffQueue.taskIds.length}/${sniffQueue.taskIds.length}${sniffQueue.failedCount ? `（失败 ${sniffQueue.failedCount}）` : ""}`
-                : `${Math.min(sniffQueue.currentIndex + 1, sniffQueue.taskIds.length)}/${sniffQueue.taskIds.length}`
-              : null,
+            progressLabel: sniffQueue ? formatQueueProgress(sniffQueue, language) : null,
             onStart: () => void handleStartVideoQueue(),
             onClearSelection: () => {
               setSelectedTaskIds(new Set());
@@ -891,46 +931,55 @@ function App({ backend = defaultBackend }: AppProps) {
       {toast && (
         <div className={`toast toast-${toast.kind}`} role="status" aria-live="polite">
           {toast.kind === "success" ? <CheckCircleIcon size={20} weight="fill" /> : <WarningCircleIcon size={20} weight="fill" />}
-          <p>{toast.message}</p>
-          <button type="button" onClick={() => setToast(null)} aria-label="关闭提示"><XIcon size={16} /></button>
+          <p>{localizeRuntimeMessage(toast.message, language, toast.kind)}</p>
+          <button type="button" onClick={() => setToast(null)} aria-label={text("关闭提示", "Dismiss message")}><XIcon size={16} /></button>
         </div>
       )}
       {sniffRecoveryNeeded && (
         <div className="sniff-recovery-alert" role="alert">
           <WarningCircleIcon size={22} weight="fill" />
           <div>
-            <strong>授权助手的网络设置还没有恢复</strong>
-            <p>恢复完成前不会启动新的嗅探任务。请先退出正在切换代理的其他软件，再执行恢复。</p>
+            <strong>{text("授权助手的网络设置还没有恢复", "The authorized assistant has not restored network settings")}</strong>
+            <p>{text(
+              "恢复完成前不会启动新的嗅探任务。请先退出正在切换代理的其他软件，再执行恢复。",
+              "New detection tasks stay blocked until recovery finishes. Close other apps that are changing proxy settings, then recover again.",
+            )}</p>
           </div>
-          <button type="button" onClick={() => void handleRecoverSniff()}>立即恢复网络设置</button>
+          <button type="button" onClick={() => void handleRecoverSniff()}>{text("立即恢复网络设置", "Restore Network Settings")}</button>
         </div>
       )}
       {sniffPlan && (
         <div className="modal-backdrop" role="presentation">
           <section className="authorization-dialog" role="dialog" aria-modal="true" aria-labelledby="sniff-dialog-title">
             <div className="authorization-dialog-icon"><LinkPermissionIcon /></div>
-            <h2 id="sniff-dialog-title">启用授权嗅探助手</h2>
+            <h2 id="sniff-dialog-title">{text("启用授权嗅探助手", "Enable Authorized Detection")}</h2>
             <div className="vpn-required-notice">
-              启用前请先关闭 VPN 或系统代理；关闭后再点下方按钮。
+              {text("启用前请先关闭 VPN 或系统代理；关闭后再点下方按钮。", "Turn off your VPN or system proxy before enabling this feature.")}
             </div>
-            <p>这次操作会临时把系统 HTTP/HTTPS 流量接入本地下载助手，并安装一张仅供本次连续下载使用的证书。系统可能要求一次指纹或管理员认证。</p>
+            <p>{text(
+              "这次操作会临时把系统 HTTP/HTTPS 流量接入本地下载助手，并安装一张仅供本次连续下载使用的证书。系统可能要求一次指纹或管理员认证。",
+              "This temporarily routes system HTTP/HTTPS traffic through a local download assistant and installs a session certificate. macOS may request Touch ID or administrator approval once.",
+            )}</p>
             <ul>
-              <li>只在你确认后启动；公开直链下载仍然优先。</li>
-              <li>启用期间，系统 HTTP/HTTPS 请求会先经过本地助手；它只对预设的微信/腾讯页面进行解析，其他流量只转发、不保存。</li>
-              <li>匹配页面的 Cookie 与登录态仅在本机内存中临时经过助手，不显示、不写日志、不落盘、不上传。</li>
-              <li>因为会临时信任本地证书，这不是零风险功能；启用期间请暂停网银、密码修改等敏感操作。</li>
-              <li>只应用于你有权保存的内容；讯栖不会绕过账号权限或平台访问控制。</li>
-              <li>视频下载完成后会保留授权，后续视频不再重复认证。</li>
-              <li>你点击“结束并恢复网络”或退出讯栖时，才会恢复原代理并移除证书。</li>
-              <li>VPN 与系统代理必须在启用前关闭；讯栖检测到它们时会直接阻止启动。</li>
-              <li>助手来源：{sniffPlan.helperSource}；微信改版后仍可能无法识别。</li>
+              <li>{text("只在你确认后启动；公开直链下载仍然优先。", "It starts only after your confirmation; public direct downloads remain the first choice.")}</li>
+              <li>{text("启用期间，系统 HTTP/HTTPS 请求会先经过本地助手；它只对预设的微信/腾讯页面进行解析，其他流量只转发、不保存。", "While enabled, HTTP/HTTPS requests pass through the local assistant. It parses only predefined WeChat/Tencent pages and does not save other traffic.")}</li>
+              <li>{text("匹配页面的 Cookie 与登录态仅在本机内存中临时经过助手，不显示、不写日志、不落盘、不上传。", "Matching-page cookies and session state pass through local memory only. They are not displayed, logged, saved, or uploaded.")}</li>
+              <li>{text("因为会临时信任本地证书，这不是零风险功能；启用期间请暂停网银、密码修改等敏感操作。", "This is not risk-free because a local certificate is temporarily trusted. Avoid banking, password changes, and other sensitive activity while it is enabled.")}</li>
+              <li>{text("只应用于你有权保存的内容；讯栖不会绕过账号权限或平台访问控制。", "Use it only for content you are allowed to save. XunQi does not bypass account permissions or platform access controls.")}</li>
+              <li>{text("视频下载完成后会保留授权，后续视频不再重复认证。", "Authorization remains available after a download so later videos do not request approval again.")}</li>
+              <li>{text("你点击“结束并恢复网络”或退出讯栖时，才会恢复原代理并移除证书。", "The original proxy and certificate trust are restored when you choose End and Restore Network or quit XunQi.")}</li>
+              <li>{text("VPN 与系统代理必须在启用前关闭；讯栖检测到它们时会直接阻止启动。", "VPN and system proxies must be off before starting; XunQi blocks activation when either is detected.")}</li>
+              <li>{text("助手来源", "Assistant source")}：{sniffPlan.helperSource}；{text("微信改版后仍可能无法识别。", "future WeChat changes may still prevent detection.")}</li>
             </ul>
             <div className="authorization-dialog-warning">
-              只有首次授权需要重新加载一次视频号子窗口，这是让微信使用新网络会话所必需的。讯栖会按已复制的分享链接自动下载原来那条；无需刷新，也不要转到浏览器扫码。之后连续下载不会再重新加载。
+              {text(
+                "只有首次授权需要重新加载一次视频号子窗口，这是让微信使用新网络会话所必需的。讯栖会按已复制的分享链接自动下载原来那条；无需刷新，也不要转到浏览器扫码。之后连续下载不会再重新加载。",
+                "Only the first authorization reloads the Channels subwindow so WeChat can use the new network session. XunQi follows the copied share link automatically; do not refresh or switch to browser QR login. Later downloads reuse the session.",
+              )}
             </div>
             <div className="authorization-dialog-actions">
-              <button type="button" className="secondary-action" onClick={handleCancelSniffPlan}>取消</button>
-              <button type="button" className="primary-action" onClick={() => void handleStartSniff()}>同意并启用</button>
+              <button type="button" className="secondary-action" onClick={handleCancelSniffPlan}>{text("取消", "Cancel")}</button>
+              <button type="button" className="primary-action" onClick={() => void handleStartSniff()}>{text("同意并启用", "Agree and Enable")}</button>
             </div>
           </section>
         </div>
@@ -949,11 +998,11 @@ function App({ backend = defaultBackend }: AppProps) {
               <div>
                 <span className="link-guide-icon"><QuestionIcon size={23} weight="duotone" /></span>
                 <div>
-                  <h2 id="link-guide-title">如何复制微信链接</h2>
-                  <p>保持讯栖打开，复制后会自动进入左侧任务列表。</p>
+                  <h2 id="link-guide-title">{text("如何复制微信链接", "How to Copy a WeChat Link")}</h2>
+                  <p>{text("保持讯栖打开，复制后会自动进入左侧任务列表。", "Keep XunQi open. Copied links appear in the task list automatically.")}</p>
                 </div>
               </div>
-              <button type="button" onClick={() => setShowLinkGuide(false)} aria-label="关闭复制链接说明">
+              <button type="button" onClick={() => setShowLinkGuide(false)} aria-label={text("关闭复制链接说明", "Close link guide")}>
                 <XIcon size={18} />
               </button>
             </header>
@@ -961,25 +1010,25 @@ function App({ backend = defaultBackend }: AppProps) {
               <article>
                 <span className="link-guide-kind"><ArticleIcon size={24} weight="duotone" /></span>
                 <div>
-                  <h3>公众号文章</h3>
-                  <p>打开文章，点击右上角的三个点（有些微信版本显示四个点），再选择：</p>
-                  <span className="copy-link-action"><CopySimpleIcon size={17} />复制链接</span>
+                  <h3>{text("公众号文章", "Official Account Article")}</h3>
+                  <p>{text("打开文章，点击右上角的三个点（有些微信版本显示四个点），再选择：", "Open the article, click the three-dot menu in the top-right (four dots in some versions), then choose:")}</p>
+                  <span className="copy-link-action"><CopySimpleIcon size={17} />{text("复制链接", "Copy Link")}</span>
                 </div>
               </article>
               <article>
                 <span className="link-guide-kind"><VideoCameraIcon size={24} weight="duotone" /></span>
                 <div>
-                  <h3>视频号</h3>
-                  <p>打开视频，点击分享按钮，在弹出的菜单中选择：</p>
-                  <span className="copy-link-action"><ShareNetworkIcon size={17} />复制链接</span>
+                  <h3>{text("视频号", "WeChat Channels")}</h3>
+                  <p>{text("打开视频，点击分享按钮，在弹出的菜单中选择：", "Open the video, click Share, then choose:")}</p>
+                  <span className="copy-link-action"><ShareNetworkIcon size={17} />{text("复制链接", "Copy Link")}</span>
                 </div>
               </article>
             </div>
             <div className="link-guide-note">
-              复制成功后不需要粘贴；讯栖检测到微信位于前台时会自动捕获新链接。
+              {text("复制成功后不需要粘贴；讯栖检测到微信位于前台时会自动捕获新链接。", "No pasting is required. When WeChat is in the foreground, XunQi captures newly copied links automatically.")}
             </div>
             <div className="authorization-dialog-actions">
-              <button type="button" className="primary-action" onClick={() => setShowLinkGuide(false)}>知道了</button>
+              <button type="button" className="primary-action" onClick={() => setShowLinkGuide(false)}>{text("知道了", "Got It")}</button>
             </div>
           </section>
         </div>
@@ -992,8 +1041,89 @@ function LinkPermissionIcon() {
   return <LinkSimpleIcon size={26} weight="duotone" />;
 }
 
+function localizeListeningActivity(value: string, language: "zh" | "en") {
+  if (language === "zh") return value;
+  const exact: Record<string, string> = {
+    "自动识别公众号与视频号，无需预先选择来源": "Automatically recognizes official-account and Channels links",
+    "发现新的微信分享链接，正在自动分类…": "New WeChat share link found; classifying…",
+    "视频已保存；连续授权仍可用于下一条": "Video saved; continuous authorization remains available",
+  };
+  if (exact[value]) return exact[value];
+  const completed = value.match(/^连续下载完成：(\d+) 条视频已保存$/u);
+  if (completed) return `Continuous download complete: ${completed[1]} videos saved`;
+  const partial = value.match(/^连续下载结束：成功 (\d+) 条，失败 (\d+) 条$/u);
+  if (partial) return `Continuous download finished: ${partial[1]} succeeded, ${partial[2]} failed`;
+  return containsChinese(value) ? "WeChat capture status updated" : value;
+}
+
+function formatQueueProgress(queue: SniffQueueState, language: "zh" | "en") {
+  if (queue.status !== "completed") {
+    return `${Math.min(queue.currentIndex + 1, queue.taskIds.length)}/${queue.taskIds.length}`;
+  }
+  if (language === "en") {
+    return `Complete ${queue.taskIds.length}/${queue.taskIds.length}${queue.failedCount ? ` (${queue.failedCount} failed)` : ""}`;
+  }
+  return `队列完成 ${queue.taskIds.length}/${queue.taskIds.length}${queue.failedCount ? `（失败 ${queue.failedCount}）` : ""}`;
+}
+
+function localizeRuntimeMessage(
+  value: string,
+  language: "zh" | "en",
+  kind: "success" | "warning" | "error",
+) {
+  if (language === "zh" || !containsChinese(value)) return value;
+  const exact: Record<string, string> = {
+    "这条微信分享链接已经收取过": "This WeChat share link is already in the task list.",
+    "微信分享链接已进入捕获任务": "The WeChat share link was added to the capture queue.",
+    "勾选的视频里没有需要授权嗅探的任务": "None of the selected videos require authorized detection.",
+    "当前没有已完成任务需要清理": "There are no completed tasks to clear.",
+  };
+  if (exact[value]) return exact[value];
+
+  const savedPdf = value.match(/^原版 PDF 已保存到 (.+)$/u);
+  if (savedPdf) return `Original PDF saved to ${savedPdf[1]}`;
+  const exportedArticle = value.match(/^文章已导出到 (.+)$/u);
+  if (exportedArticle) return `Article exported to ${exportedArticle[1]}`;
+  const downloadedVideo = value.match(/^视频已下载到 (.+)$/u);
+  if (downloadedVideo) return `Video downloaded to ${downloadedVideo[1]}`;
+  const cleared = value.match(/^已清理 (\d+) 项/u);
+  if (cleared) return `${cleared[1]} tasks and their internal cache were cleared. Local exports were kept.`;
+  const removed = value.match(/^已移除 (\d+) 项/u);
+  if (removed) return `${removed[1]} tasks and their internal cache were removed. Local exports were kept.`;
+
+  if (kind === "success") return "The operation completed successfully.";
+  if (kind === "warning") return "The operation completed with a warning. Switch to Chinese or export diagnostics for the original details.";
+  return "The operation failed. Switch to Chinese or export diagnostics for the original details.";
+}
+
+function containsChinese(value: string) {
+  return /[\u3400-\u9fff]/u.test(value);
+}
+
+function sniffConflictMessage(
+  conflict: SniffAuthorizationPlan["conflict"],
+  language: "zh" | "en",
+  chineseFallback: string,
+  englishFallback: string,
+) {
+  if (language === "zh") return conflict?.message ?? chineseFallback;
+  if (conflict?.code === "windows_sniffer_unavailable") {
+    return "Authorized detection is not available in the Windows test build. This is not a missing WebView2 component; reinstalling or extracting again will not help. Article export and public direct-video downloads still work.";
+  }
+  return conflict?.message && !containsChinese(conflict.message)
+    ? conflict.message
+    : englishFallback;
+}
+
 function normalizeSearch(value: string) {
   return value.trim().toLocaleLowerCase("zh-CN").replace(/\s+/g, " ");
+}
+
+function detectPlatform(): "macos" | "windows" | "other" {
+  const userAgent = navigator.userAgent.toLocaleLowerCase("en-US");
+  if (userAgent.includes("windows")) return "windows";
+  if (userAgent.includes("macintosh") || userAgent.includes("mac os")) return "macos";
+  return isTauriRuntime() ? "other" : "macos";
 }
 
 function isWechatShareLink(value: string) {
@@ -1071,6 +1201,14 @@ function needsAuthorizedSniffDownload({ task, video }: CaptureTaskDetail) {
     && !task.completedPath
     && video !== null
     && video.candidates.every((candidate) => !candidate.downloadable);
+}
+
+function App(props: AppProps) {
+  return (
+    <LanguageProvider>
+      <AppContent {...props} />
+    </LanguageProvider>
+  );
 }
 
 export default App;

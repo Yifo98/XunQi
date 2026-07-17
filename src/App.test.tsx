@@ -1,10 +1,12 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createPreviewBackend } from "./lib/previewBackend";
 
 describe("讯栖多任务工作台", () => {
+  beforeEach(() => window.localStorage.removeItem("xunqi.interface-language"));
+
   it("按来源分组，并可搜索和切换公众号/视频号筛选", async () => {
     const user = userEvent.setup();
     render(<App backend={createPreviewBackend()} />);
@@ -104,6 +106,52 @@ describe("讯栖多任务工作台", () => {
     expect(within(dialog).getByText("明确授权")).toBeInTheDocument();
     expect(within(dialog).getByText("本地诊断日志")).toBeInTheDocument();
     expect(within(dialog).getByText(/不记录 Cookie、聊天记录/)).toBeInTheDocument();
+  });
+
+  it("提供中英文切换，并切换主要工作台文案", async () => {
+    const user = userEvent.setup();
+    render(<App backend={createPreviewBackend()} />);
+
+    const [header] = await screen.findAllByRole("banner");
+    await user.click(within(header).getByRole("button", { name: "切换为英文" }));
+
+    expect(within(header).getByRole("button", { name: "Switch to Chinese" })).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "About" })).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "Export Logs" })).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "How to Copy Links" })).toBeInTheDocument();
+    expect(within(header).getByText("Listening to WeChat")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Capture Tasks" })).toBeInTheDocument();
+
+    await user.click(within(header).getByRole("button", { name: "Switch to Chinese" }));
+    expect(within(header).getByRole("button", { name: "切换为英文" })).toBeInTheDocument();
+  });
+
+  it("英文界面会翻译底层返回的公开视频标签", async () => {
+    const user = userEvent.setup();
+    const backend = createPreviewBackend();
+    const template = structuredClone((await backend.listTasks()).find(({ task }) => task.kind === "video")!);
+    const video = {
+      ...template,
+      task: { ...template.task, id: 88, status: "ready" as const },
+      video: {
+        ...template.video!,
+        candidates: [{
+          url: "https://finder.video.qq.com/public-demo.mp4",
+          kind: "direct_file" as const,
+          label: "公开视频文件",
+          downloadable: true,
+        }],
+      },
+    };
+    backend.listTasks = async () => [video];
+    backend.getTaskDetail = async () => video;
+
+    render(<App backend={backend} />);
+    const [header] = await screen.findAllByRole("banner");
+    await user.click(within(header).getByRole("button", { name: "切换为英文" }));
+
+    expect(await screen.findByText("Public Video File")).toBeInTheDocument();
+    expect(screen.queryByText("公开视频文件")).not.toBeInTheDocument();
   });
 
   it("可在讯栖关于页导出隐私友好的诊断日志并定位文件", async () => {
@@ -445,6 +493,45 @@ describe("讯栖多任务工作台", () => {
     expect(screen.getAllByText(/保存到 \/tmp\/xunqi-test-downloads/).length).toBeGreaterThan(0);
 
     expect(screen.queryByRole("button", { name: "打开下载助手" })).not.toBeInTheDocument();
+
+    const [header] = await screen.findAllByRole("banner");
+    await user.click(within(header).getByRole("button", { name: "切换为英文" }));
+    expect(screen.getByText("Original Quality")).toBeInTheDocument();
+    expect(screen.queryByText("原始画质")).not.toBeInTheDocument();
+  });
+
+  it("Windows 英文界面会准确说明授权嗅探的平台边界", async () => {
+    const user = userEvent.setup();
+    const backend = createPreviewBackend();
+    const template = structuredClone((await backend.listTasks()).find(({ task }) => task.kind === "video")!);
+    const video = {
+      ...template,
+      task: { ...template.task, id: 89, status: "needs_attention" as const, completedPath: null },
+      video: { ...template.video!, candidates: [] },
+    };
+    backend.listTasks = async () => [video];
+    backend.getTaskDetail = async () => video;
+    backend.prepareVideoSniff = async () => ({
+      planId: "",
+      taskId: 89,
+      expiresAt: "2099-01-01T00:00:00Z",
+      canStart: false,
+      changes: [],
+      reusesAuthorization: false,
+      helperSource: "",
+      conflict: {
+        code: "windows_sniffer_unavailable",
+        message: "Windows 测试版暂未提供授权嗅探下载；这不是 WebView2 缺失。",
+      },
+    });
+
+    render(<App backend={backend} platform="windows" />);
+    const [header] = await screen.findAllByRole("banner");
+    await user.click(within(header).getByRole("button", { name: "切换为英文" }));
+
+    expect(await screen.findByText("Authorized Detection Is Not Available on Windows Yet")).toBeInTheDocument();
+    expect(screen.getByText(/not a missing WebView2 component/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Authorize Detection" })).not.toBeInTheDocument();
   });
 
   it("首次授权后的下一条视频直接复用授权和保存目录", async () => {
