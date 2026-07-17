@@ -78,7 +78,13 @@ pub(super) fn helper_hash_matches(actual: &str) -> bool {
 }
 
 pub(super) fn validate_platform_prerequisites() -> Result<(), SniffConflict> {
-    for required in ["powershell.exe", "certutil.exe", "reg.exe", "taskkill.exe"] {
+    for required in [
+        "powershell.exe",
+        "certutil.exe",
+        "icacls.exe",
+        "reg.exe",
+        "taskkill.exe",
+    ] {
         let available = Command::new("where.exe")
             .arg(required)
             .stdin(Stdio::null())
@@ -494,29 +500,34 @@ pub(super) fn set_private_directory(path: &Path) -> Result<(), AppError> {
 }
 
 fn set_private_acl(path: &Path, directory: bool) -> Result<(), AppError> {
-    let script = if directory {
-        r#"
-$ErrorActionPreference = 'Stop'
-$identity = [Security.Principal.WindowsIdentity]::GetCurrent().User
-$acl = New-Object Security.AccessControl.DirectorySecurity
-$acl.SetAccessRuleProtection($true, $false)
-$rule = New-Object Security.AccessControl.FileSystemAccessRule($identity, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-$acl.AddAccessRule($rule)
-Set-Acl -LiteralPath $env:XUNQI_PRIVATE_PATH -AclObject $acl
-"#
+    let sid_output = powershell(
+        "[Console]::Out.Write([Security.Principal.WindowsIdentity]::GetCurrent().User.Value)",
+        &[],
+    )?;
+    if !sid_output.status.success() {
+        return Err(AppError::Content(format!(
+            "无法确认当前 Windows 用户：{}",
+            command_error(&sid_output)
+        )));
+    }
+    let sid = String::from_utf8_lossy(&sid_output.stdout)
+        .trim()
+        .to_string();
+    if !sid.starts_with("S-") {
+        return Err(AppError::Content(
+            "Windows 返回了无效的当前用户安全标识".into(),
+        ));
+    }
+    let permission = if directory {
+        format!("*{sid}:(OI)(CI)(F)")
     } else {
-        r#"
-$ErrorActionPreference = 'Stop'
-$identity = [Security.Principal.WindowsIdentity]::GetCurrent().User
-$acl = New-Object Security.AccessControl.FileSecurity
-$acl.SetAccessRuleProtection($true, $false)
-$rule = New-Object Security.AccessControl.FileSystemAccessRule($identity, 'FullControl', 'Allow')
-$acl.AddAccessRule($rule)
-Set-Acl -LiteralPath $env:XUNQI_PRIVATE_PATH -AclObject $acl
-"#
+        format!("*{sid}:(F)")
     };
-    let value = path.to_string_lossy();
-    let output = powershell(script, &[("XUNQI_PRIVATE_PATH", value.as_ref())])?;
+    let output = Command::new("icacls.exe")
+        .arg(path)
+        .args(["/inheritance:r", "/grant:r", &permission])
+        .stdin(Stdio::null())
+        .output()?;
     if !output.status.success() {
         return Err(AppError::Content(format!(
             "无法保护授权会话的临时文件：{}",

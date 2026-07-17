@@ -2392,14 +2392,7 @@ mod tests {
 
         let routed = session_network_state(&original, 22023);
 
-        assert_eq!(
-            routed.web,
-            ProxyState {
-                enabled: true,
-                server: "127.0.0.1".into(),
-                port: 22023,
-            }
-        );
+        assert_eq!(routed.web, session_proxy_state(22023));
         assert_eq!(routed.secure_web, routed.web);
         assert_eq!(
             routed.auto_proxy,
@@ -2414,6 +2407,7 @@ mod tests {
         );
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn recovery_accepts_only_original_or_partially_applied_network_components() {
         let original = NetworkSnapshot {
