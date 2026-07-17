@@ -229,6 +229,11 @@ export function createPreviewBackend(): Backend {
       return before - records.length;
     },
     chooseOutputDirectory: async () => "/tmp/讯栖预览输出",
+    chooseDiagnosticDestination: async () => "/tmp/XunQi-Diagnostics-preview.txt",
+    exportDiagnostics: async (destinationPath) => ({
+      destination: destinationPath,
+      bytesWritten: 2048,
+    }),
     detectWechatForeground: async () => ({
       isWechatFrontmost: false,
       applicationName: null,

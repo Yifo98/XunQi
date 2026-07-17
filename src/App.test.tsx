@@ -95,12 +95,34 @@ describe("讯栖多任务工作台", () => {
     expect(within(header).getByText(/讯栖/)).toHaveTextContent("讯栖 XunQi");
     expect(within(header).getByText("讯来有迹，文止于栖。")).toBeInTheDocument();
     expect(within(header).getByText("A QIDU Utility")).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "导出日志" })).toBeInTheDocument();
 
     await user.click(within(header).getByRole("button", { name: "关于" }));
     const dialog = screen.getByRole("dialog", { name: "讯栖 XunQi" });
     expect(within(dialog).getByText("栖 · CHAPTER 01")).toBeInTheDocument();
     expect(within(dialog).getByText(/只接住你主动复制的微信分享链接/)).toBeInTheDocument();
     expect(within(dialog).getByText("明确授权")).toBeInTheDocument();
+    expect(within(dialog).getByText("本地诊断日志")).toBeInTheDocument();
+    expect(within(dialog).getByText(/不记录 Cookie、聊天记录/)).toBeInTheDocument();
+  });
+
+  it("可在讯栖关于页导出隐私友好的诊断日志并定位文件", async () => {
+    const user = userEvent.setup();
+    const backend = createPreviewBackend();
+    const chooseDestination = vi.spyOn(backend, "chooseDiagnosticDestination");
+    const exportDiagnostics = vi.spyOn(backend, "exportDiagnostics");
+    const revealOutput = vi.spyOn(backend, "revealOutput");
+    render(<App backend={backend} />);
+
+    const [header] = await screen.findAllByRole("banner");
+    await user.click(within(header).getByRole("button", { name: "关于" }));
+    const dialog = screen.getByRole("dialog", { name: "讯栖 XunQi" });
+    await user.click(within(dialog).getByRole("button", { name: "导出诊断日志" }));
+
+    await waitFor(() => expect(chooseDestination).toHaveBeenCalledTimes(1));
+    expect(exportDiagnostics).toHaveBeenCalledWith("/tmp/XunQi-Diagnostics-preview.txt");
+    expect(revealOutput).toHaveBeenCalledWith("/tmp/XunQi-Diagnostics-preview.txt");
+    expect(await screen.findByText(/诊断日志已导出并在文件夹中显示/)).toBeInTheDocument();
   });
 
   it("在右侧一次处理勾选的公众号并导出 PDF，不把视频号加入批量下载", async () => {

@@ -20,7 +20,7 @@ $Name = "XunQi-$Version-Windows-x64-source-BAT"
 $TempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
 $Stage = Join-Path $TempRoot $Name
 $Source = Join-Path $Stage "source"
-$SourceArchive = Join-Path $TempRoot "xunqi-source-$Version.tar"
+$SourceArchive = Join-Path $TempRoot "xunqi-source-$Version.zip"
 $Zip = Join-Path $Release "$Name.zip"
 $Checksum = "$Zip.sha256"
 
@@ -29,14 +29,50 @@ Remove-Item $SourceArchive -Force -ErrorAction SilentlyContinue
 New-Item $Source -ItemType Directory -Force | Out-Null
 New-Item $Release -ItemType Directory -Force | Out-Null
 
-Copy-Item (Join-Path $Root "assets/portable/启动讯栖.bat") (Join-Path $Stage "Launch-XunQi.bat")
+$LauncherSource = Join-Path $Root "assets/portable/启动讯栖.bat"
+$LauncherTarget = Join-Path $Stage "Launch-XunQi.bat"
+$LauncherText = [System.IO.File]::ReadAllText($LauncherSource, [System.Text.UTF8Encoding]::new($false))
+if ($LauncherText.ToCharArray() | Where-Object { [int]$_ -gt 127 } | Select-Object -First 1) {
+  throw "Windows BAT 启动器必须只包含 ASCII 字符，避免 cmd.exe 把 UTF-8 文本误解析为命令"
+}
+$LauncherText = [System.Text.RegularExpressions.Regex]::Replace($LauncherText, "\r?\n", "`r`n")
+[System.IO.File]::WriteAllText($LauncherTarget, $LauncherText, [System.Text.ASCIIEncoding]::new())
 Copy-Item (Join-Path $Root "assets/portable/使用说明-Windows.txt") (Join-Path $Stage "README-Windows.txt")
 
-git -C $Root archive --format=tar HEAD -o $SourceArchive
+git -C $Root archive --format=zip HEAD -o $SourceArchive
 if ($LASTEXITCODE -ne 0) { throw "无法生成源码快照" }
-tar -xf $SourceArchive -C $Source
-if ($LASTEXITCODE -ne 0) { throw "无法展开源码快照" }
+Expand-Archive -LiteralPath $SourceArchive -DestinationPath $Source -Force
 Remove-Item $SourceArchive -Force
+
+$TrackedFiles = @(git -C $Root -c core.quotepath=false ls-files)
+if ($LASTEXITCODE -ne 0) { throw "无法读取 Git 源码文件列表" }
+foreach ($TrackedFile in $TrackedFiles) {
+  $TrackedPath = Join-Path $Source ($TrackedFile -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+  if (-not (Test-Path -LiteralPath $TrackedPath -PathType Leaf)) {
+    throw "源码 ZIP 没有保留文件名或文件：$TrackedFile"
+  }
+}
+$PackagedSourceFiles = @(Get-ChildItem -LiteralPath $Source -Recurse -File)
+if ($PackagedSourceFiles.Count -ne $TrackedFiles.Count) {
+  throw "源码文件数量不一致：tracked=$($TrackedFiles.Count) packaged=$($PackagedSourceFiles.Count)"
+}
+
+$PreviousSelfTest = $env:XUNQI_LAUNCHER_SELF_TEST
+try {
+  $env:XUNQI_LAUNCHER_SELF_TEST = "1"
+  Push-Location $Stage
+  try {
+    $SelfTestOutput = @(& $env:ComSpec /d /c "Launch-XunQi.bat" 2>&1)
+    $SelfTestExitCode = $LASTEXITCODE
+  } finally {
+    Pop-Location
+  }
+} finally {
+  $env:XUNQI_LAUNCHER_SELF_TEST = $PreviousSelfTest
+}
+if ($SelfTestExitCode -ne 0 -or ($SelfTestOutput -join "`n") -notmatch 'XUNQI_LAUNCHER_SELF_TEST_OK') {
+  throw "Windows BAT 启动器自检失败：$($SelfTestOutput -join ' | ')"
+}
 
 Remove-Item $Zip, $Checksum -Force -ErrorAction SilentlyContinue
 Compress-Archive -Path $Stage -DestinationPath $Zip -CompressionLevel Optimal

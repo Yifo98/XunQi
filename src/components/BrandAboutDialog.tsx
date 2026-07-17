@@ -1,11 +1,17 @@
-import { XIcon } from "@phosphor-icons/react";
+import { FileArrowDownIcon, ShieldCheckIcon, XIcon } from "@phosphor-icons/react";
 import logoUrl from "../../assets/brand/xunqi-ui.png";
 
 type BrandAboutDialogProps = {
   onClose: () => void;
+  onExportDiagnostics: () => void;
+  diagnosticsBusy: boolean;
 };
 
-export function BrandAboutDialog({ onClose }: BrandAboutDialogProps) {
+export function BrandAboutDialog({
+  onClose,
+  onExportDiagnostics,
+  diagnosticsBusy,
+}: BrandAboutDialogProps) {
   return (
     <div className="modal-backdrop" role="presentation">
       <section className="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
@@ -40,9 +46,30 @@ export function BrandAboutDialog({ onClose }: BrandAboutDialogProps) {
             <span>敏感辅助流程必须由你确认，结束后恢复网络并清理临时状态。</span>
           </article>
         </div>
+        <div className="about-diagnostics">
+          <ShieldCheckIcon size={23} weight="duotone" />
+          <div>
+            <strong>本地诊断日志</strong>
+            <span>
+              只记录时间、功能事件、成功或失败分类、版本和系统类型；不记录 Cookie、聊天记录、
+              文章正文、分享链接、密码或令牌。导出后可直接把 TXT 文件交给大师姐排查。
+            </span>
+          </div>
+        </div>
         <footer>
           <span>A QIDU Utility</span>
-          <button type="button" className="primary-action" onClick={onClose}>明白了</button>
+          <div className="about-footer-actions">
+            <button
+              type="button"
+              className="secondary-action"
+              onClick={onExportDiagnostics}
+              disabled={diagnosticsBusy}
+            >
+              <FileArrowDownIcon size={18} />
+              {diagnosticsBusy ? "正在导出…" : "导出诊断日志"}
+            </button>
+            <button type="button" className="primary-action" onClick={onClose}>明白了</button>
+          </div>
         </footer>
       </section>
     </div>

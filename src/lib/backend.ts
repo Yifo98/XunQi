@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 export type CaptureKind = "article" | "video";
@@ -85,6 +85,11 @@ export type OutputResult = {
   destination: string;
   bytesWritten: number;
   warning?: string | null;
+};
+
+export type DiagnosticExportResult = {
+  destination: string;
+  bytesWritten: number;
 };
 
 export type WechatForegroundStatus = {
@@ -178,6 +183,8 @@ export interface Backend {
   recoverVideoSniffing(): Promise<SniffRecoveryResult>;
   clearTasks(taskIds: number[]): Promise<number>;
   chooseOutputDirectory(): Promise<string | null>;
+  chooseDiagnosticDestination(): Promise<string | null>;
+  exportDiagnostics(destinationPath: string): Promise<DiagnosticExportResult>;
   detectWechatForeground(): Promise<WechatForegroundStatus>;
   readClipboardText(): Promise<string>;
   openExternal(url: string): Promise<void>;
@@ -221,6 +228,17 @@ export const tauriBackend: Backend = {
     });
     return typeof selected === "string" ? selected : null;
   },
+  chooseDiagnosticDestination: async () => {
+    const date = new Date().toISOString().slice(0, 10);
+    const selected = await save({
+      title: "导出讯栖诊断日志",
+      defaultPath: `XunQi-Diagnostics-${date}.txt`,
+      filters: [{ name: "诊断日志", extensions: ["txt"] }],
+    });
+    return typeof selected === "string" ? selected : null;
+  },
+  exportDiagnostics: (destinationPath) =>
+    invoke<DiagnosticExportResult>("export_diagnostics", { destinationPath }),
   detectWechatForeground: () =>
     invoke<WechatForegroundStatus>("detect_wechat_foreground"),
   readClipboardText: async () => {

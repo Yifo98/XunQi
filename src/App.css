@@ -1449,6 +1449,39 @@ select:focus-visible {
   display: block;
 }
 
+.about-diagnostics {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  color: #555d73;
+  background: #f4f8f4;
+  border: 1px solid #dce9dd;
+  border-radius: 13px;
+}
+
+.about-diagnostics > svg {
+  flex: 0 0 auto;
+  color: #3f8b55;
+}
+
+.about-diagnostics strong,
+.about-diagnostics span {
+  display: block;
+}
+
+.about-diagnostics strong {
+  color: #2f5139;
+  font-size: 13px;
+}
+
+.about-diagnostics span {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
 .about-principles strong {
   color: #29314b;
   font-size: 14px;
@@ -1473,6 +1506,12 @@ select:focus-visible {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.7px;
+}
+
+.about-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .link-guide-dialog > header,

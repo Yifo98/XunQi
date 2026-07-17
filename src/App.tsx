@@ -4,6 +4,7 @@ import {
   CaretRightIcon,
   CheckCircleIcon,
   CopySimpleIcon,
+  FileArrowDownIcon,
   InfoIcon,
   LinkSimpleIcon,
   QuestionIcon,
@@ -66,6 +67,7 @@ function App({ backend = defaultBackend }: AppProps) {
   const [sniffRecoveryNeeded, setSniffRecoveryNeeded] = useState(false);
   const [showLinkGuide, setShowLinkGuide] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const clipboardFingerprintRef = useRef<string | null>(null);
   const captureBusyRef = useRef(false);
   const wechatWasFrontmostRef = useRef(false);
@@ -601,6 +603,32 @@ function App({ backend = defaultBackend }: AppProps) {
     }
   }
 
+  async function handleExportDiagnostics() {
+    if (diagnosticsBusy) return;
+    setDiagnosticsBusy(true);
+    try {
+      const destination = await backend.chooseDiagnosticDestination();
+      if (!destination) return;
+      const result = await backend.exportDiagnostics(destination);
+      try {
+        await backend.revealOutput(result.destination);
+        setToast({
+          kind: "success",
+          message: `诊断日志已导出并在文件夹中显示：${result.destination}`,
+        });
+      } catch (reason) {
+        setToast({
+          kind: "warning",
+          message: `诊断日志已导出到 ${result.destination}，但无法自动打开文件夹：${readableError(reason)}`,
+        });
+      }
+    } catch (reason) {
+      setToast({ kind: "error", message: `诊断日志导出失败：${readableError(reason)}` });
+    } finally {
+      setDiagnosticsBusy(false);
+    }
+  }
+
   async function handleBatchArticles() {
     const selectedArticles = tasks.filter(
       ({ task }) => task.kind === "article" && selectedTaskIds.has(task.id),
@@ -733,6 +761,15 @@ function App({ backend = defaultBackend }: AppProps) {
             <button type="button" className="about-button" onClick={() => setShowAbout(true)}>
               <InfoIcon size={17} weight="bold" />
               <span>关于</span>
+            </button>
+            <button
+              type="button"
+              className="about-button"
+              onClick={() => void handleExportDiagnostics()}
+              disabled={diagnosticsBusy}
+            >
+              <FileArrowDownIcon size={17} weight="bold" />
+              <span>{diagnosticsBusy ? "导出中" : "导出日志"}</span>
             </button>
             <button type="button" className="link-guide-button" onClick={() => setShowLinkGuide(true)}>
               <QuestionIcon size={17} weight="bold" />
@@ -898,7 +935,13 @@ function App({ backend = defaultBackend }: AppProps) {
           </section>
         </div>
       )}
-      {showAbout && <BrandAboutDialog onClose={() => setShowAbout(false)} />}
+      {showAbout && (
+        <BrandAboutDialog
+          onClose={() => setShowAbout(false)}
+          onExportDiagnostics={() => void handleExportDiagnostics()}
+          diagnosticsBusy={diagnosticsBusy}
+        />
+      )}
       {showLinkGuide && (
         <div className="modal-backdrop" role="presentation">
           <section className="link-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="link-guide-title">
