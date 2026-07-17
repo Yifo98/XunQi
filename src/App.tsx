@@ -4,6 +4,7 @@ import {
   CaretRightIcon,
   CheckCircleIcon,
   CopySimpleIcon,
+  InfoIcon,
   LinkSimpleIcon,
   QuestionIcon,
   ShareNetworkIcon,
@@ -14,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import logoUrl from "../assets/brand/xunqi-ui.png";
 import "./App.css";
+import { BrandAboutDialog } from "./components/BrandAboutDialog";
 import { TaskDetail } from "./components/TaskDetail";
 import { TaskSidebar, type KindFilter } from "./components/TaskSidebar";
 import {
@@ -24,6 +26,7 @@ import {
   type CaptureTaskDetail,
   type DetectedVideo,
   type SniffAuthorizationPlan,
+  type SniffQualityMode,
   type SniffSessionSnapshot,
 } from "./lib/backend";
 import { createPreviewBackend } from "./lib/previewBackend";
@@ -59,8 +62,10 @@ function App({ backend = defaultBackend }: AppProps) {
   const [sniffPlan, setSniffPlan] = useState<SniffAuthorizationPlan | null>(null);
   const [sniffSession, setSniffSession] = useState<SniffSessionSnapshot | null>(null);
   const [sniffQueue, setSniffQueue] = useState<SniffQueueState | null>(null);
+  const [videoQualityMode, setVideoQualityMode] = useState<SniffQualityMode>("original");
   const [sniffRecoveryNeeded, setSniffRecoveryNeeded] = useState(false);
   const [showLinkGuide, setShowLinkGuide] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const clipboardFingerprintRef = useRef<string | null>(null);
   const captureBusyRef = useRef(false);
   const wechatWasFrontmostRef = useRef(false);
@@ -115,8 +120,21 @@ function App({ backend = defaultBackend }: AppProps) {
 
   useEffect(() => {
     if (!sniffQueue || sniffQueue.status !== "running" || !sniffSession) return;
-    if (!["completed", "failed_reusable"].includes(sniffSession.phase)) return;
     if (sniffQueue.taskIds[sniffQueue.currentIndex] !== sniffSession.taskId) return;
+    if (["failed_restored", "cancelled_restored", "restoration_required"].includes(sniffSession.phase)) {
+      const stopTimer = window.setTimeout(() => {
+        setSniffQueue((current) => current ? { ...current, status: "stopped" } : current);
+        setSniffRecoveryNeeded(sniffSession.phase === "restoration_required");
+        setListeningActivity(sniffSession.message);
+        setToast({
+          kind: sniffSession.phase === "cancelled_restored" ? "warning" : "error",
+          message: sniffSession.message,
+        });
+        void reload(sniffSession.taskId);
+      }, 0);
+      return () => window.clearTimeout(stopTimer);
+    }
+    if (!["completed", "failed_reusable"].includes(sniffSession.phase)) return;
     if (advancedSniffSessionsRef.current.has(sniffSession.sessionId)) return;
     const advanceTimer = window.setTimeout(() => {
       if (advancedSniffSessionsRef.current.has(sniffSession.sessionId)) return;
@@ -152,6 +170,7 @@ function App({ backend = defaultBackend }: AppProps) {
           nextTaskId,
           plan.planId,
           sniffQueue.destinationDirectory,
+          videoQualityMode,
         );
         setSniffSession(session);
         setSniffQueue({ ...nextQueue, status: "running" });
@@ -161,7 +180,7 @@ function App({ backend = defaultBackend }: AppProps) {
       });
     }, 0);
     return () => window.clearTimeout(advanceTimer);
-  }, [backend, reload, sniffQueue, sniffSession]);
+  }, [backend, reload, sniffQueue, sniffSession, videoQualityMode]);
 
   const replaceTask = useCallback((next: CaptureTaskDetail) => {
     setTasks((current) => {
@@ -206,7 +225,6 @@ function App({ backend = defaultBackend }: AppProps) {
   );
 
   const handleQueryChange = useCallback((value: string) => {
-    setSelectedTaskIds(new Set());
     if (!isWechatShareLink(value)) {
       setQuery(value);
       return;
@@ -376,13 +394,13 @@ function App({ backend = defaultBackend }: AppProps) {
     ({ task }) => task.kind === "video" && selectedTaskIds.has(task.id),
   ).length;
   const selectedSniffVideoCount = tasks.filter(
-    ({ task, video }) =>
-      task.kind === "video"
-      && selectedTaskIds.has(task.id)
-      && video !== null
-      && video.candidates.every((candidate) => !candidate.downloadable),
+    (detail) => selectedTaskIds.has(detail.task.id) && needsAuthorizedSniffDownload(detail),
   ).length;
+  const selectedSkippedVideoCount = selectedVideoCount - selectedSniffVideoCount;
   const activeBusy = activeTaskId !== null && busyTaskIds.has(activeTaskId);
+  const visibleTaskIds = filteredTasks.map(({ task }) => task.id);
+  const allVisibleSelected = visibleTaskIds.length > 0
+    && visibleTaskIds.every((taskId) => selectedTaskIds.has(taskId));
 
   async function handleExport(taskId: number, mode: ArticleExportMode) {
     const directory = await backend.chooseOutputDirectory();
@@ -465,7 +483,12 @@ function App({ backend = defaultBackend }: AppProps) {
     setSniffPlan(null);
     setBusyTaskIds((current) => new Set(current).add(plan.taskId));
     try {
-      const session = await backend.startVideoSniff(plan.taskId, plan.planId, directory);
+      const session = await backend.startVideoSniff(
+        plan.taskId,
+        plan.planId,
+        directory,
+        videoQualityMode,
+      );
       setSniffSession(session);
       setActiveTaskId(plan.taskId);
       setSniffQueue((current) => current?.taskIds.includes(plan.taskId)
@@ -484,12 +507,7 @@ function App({ backend = defaultBackend }: AppProps) {
 
   async function handleStartVideoQueue() {
     const taskIds = tasks
-      .filter(({ task, video }) => (
-        task.kind === "video"
-        && selectedTaskIds.has(task.id)
-        && video !== null
-        && video.candidates.every((candidate) => !candidate.downloadable)
-      ))
+      .filter((detail) => selectedTaskIds.has(detail.task.id) && needsAuthorizedSniffDownload(detail))
       .map(({ task }) => task.id);
     if (taskIds.length === 0) {
       setToast({ kind: "error", message: "勾选的视频里没有需要授权嗅探的任务" });
@@ -697,9 +715,12 @@ function App({ backend = defaultBackend }: AppProps) {
         <div className="brand-lockup">
           <img src={logoUrl} alt="" />
           <div className="brand-copy">
-            <strong>讯栖</strong>
+            <div className="brand-title-row">
+              <strong>讯栖 <span lang="en">XunQi</span></strong>
+              <b>栖</b>
+            </div>
             <span>讯来有迹，文止于栖。</span>
-            <small>讯者，消息之所至；栖者，文章之所安。</small>
+            <small>A QIDU Utility</small>
           </div>
         </div>
         <div className="listening-mark" aria-hidden="true">
@@ -709,6 +730,10 @@ function App({ backend = defaultBackend }: AppProps) {
         </div>
         <div className="listening-status">
           <div className="listening-status-top">
+            <button type="button" className="about-button" onClick={() => setShowAbout(true)}>
+              <InfoIcon size={17} weight="bold" />
+              <span>关于</span>
+            </button>
             <button type="button" className="link-guide-button" onClick={() => setShowLinkGuide(true)}>
               <QuestionIcon size={17} weight="bold" />
               如何复制链接
@@ -743,6 +768,8 @@ function App({ backend = defaultBackend }: AppProps) {
             selectedCount={selectedTaskIds.size}
             selectedArticleCount={selectedArticleCount}
             selectedVideoCount={selectedVideoCount}
+            visibleTaskCount={visibleTaskIds.length}
+            allVisibleSelected={allVisibleSelected}
             batchBusy={
               batchProgress !== null
               || sniffQueue?.status === "running"
@@ -750,14 +777,24 @@ function App({ backend = defaultBackend }: AppProps) {
               || Array.from(selectedTaskIds).some((taskId) => busyTaskIds.has(taskId))
             }
             onQueryChange={handleQueryChange}
-            onFilterChange={(value) => {
-              setKindFilter(value);
-              setSelectedTaskIds(new Set());
-            }}
+            onFilterChange={setKindFilter}
             onActivate={setActiveTaskId}
             onToggleSelected={(taskId) =>
               setSelectedTaskIds((current) => toggleId(current, taskId))
             }
+            onToggleVisibleSelection={() => setSelectedTaskIds((current) => {
+              const next = new Set(current);
+              if (allVisibleSelected) {
+                for (const taskId of visibleTaskIds) next.delete(taskId);
+              } else {
+                for (const taskId of visibleTaskIds) next.add(taskId);
+              }
+              return next;
+            })}
+            onClearSelection={() => {
+              setSelectedTaskIds(new Set());
+              setSniffQueue(null);
+            }}
             onToggleSource={(sourceName) =>
               setCollapsedSources((current) => toggleValue(current, sourceName))
             }
@@ -781,6 +818,8 @@ function App({ backend = defaultBackend }: AppProps) {
           onStopSniff={(sessionId) => void handleStopSniff(sessionId)}
           onRecoverSniff={() => void handleRecoverSniff()}
           sniffSession={sniffSession}
+          videoQualityMode={videoQualityMode}
+          onVideoQualityModeChange={setVideoQualityMode}
           onOpenOriginal={(url) => void handleOpenExternal(url, "微信原文")}
           onRevealOutput={(path) => void handleRevealOutput(path)}
           articleBatch={{
@@ -793,6 +832,7 @@ function App({ backend = defaultBackend }: AppProps) {
           }}
           videoQueue={{
             selectedCount: selectedSniffVideoCount,
+            skippedCount: selectedSkippedVideoCount,
             running: sniffQueue?.status === "running" || sniffQueue?.status === "awaiting_authorization",
             progressLabel: sniffQueue
               ? sniffQueue.status === "completed"
@@ -804,6 +844,9 @@ function App({ backend = defaultBackend }: AppProps) {
               setSelectedTaskIds(new Set());
               setSniffQueue(null);
             },
+            qualityMode: videoQualityMode,
+            onQualityModeChange: setVideoQualityMode,
+            qualityLocked: sniffSession?.authorizationReusable === true,
           }}
         />
       </div>
@@ -855,6 +898,7 @@ function App({ backend = defaultBackend }: AppProps) {
           </section>
         </div>
       )}
+      {showAbout && <BrandAboutDialog onClose={() => setShowAbout(false)} />}
       {showLinkGuide && (
         <div className="modal-backdrop" role="presentation">
           <section className="link-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="link-guide-title">
@@ -976,6 +1020,14 @@ async function clipboardFingerprint(value: string) {
 
 function isActiveSniffPhase(phase: SniffSessionSnapshot["phase"]) {
   return ["starting", "awaiting_playback", "capturing", "saving", "restoring"].includes(phase);
+}
+
+function needsAuthorizedSniffDownload({ task, video }: CaptureTaskDetail) {
+  return task.kind === "video"
+    && task.status !== "completed"
+    && !task.completedPath
+    && video !== null
+    && video.candidates.every((candidate) => !candidate.downloadable);
 }
 
 export default App;

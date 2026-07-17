@@ -1,4 +1,4 @@
-import articleCoverUrl from "../../assets/preview/article-cover.svg";
+import articleCoverUrl from "../../assets/preview/article-cover.svg?no-inline";
 import type {
   ArticleExportMode,
   Backend,
@@ -27,6 +27,7 @@ function task(
 ): CaptureTaskDetail {
   const isPrimary = id === 1;
   const isReadyVideo = kind === "video" && status === "ready";
+  const showsSniffAuthorizationState = kind === "video" && status === "failed";
   return {
     task: {
       id,
@@ -59,7 +60,7 @@ function task(
             wordCount: isPrimary ? 3852 : 1240,
           }
         : null,
-    video: isReadyVideo
+    video: isReadyVideo || showsSniffAuthorizationState
       ? {
           pageTitle: title,
           pageUrl: `https://weixin.qq.com/sph/preview-${id}`,
@@ -69,13 +70,15 @@ function task(
           coverImageUrl: null,
           candidates: [
             {
-              url: `https://cdn.example.com/preview-${id}.mp4`,
-              kind: "direct_file",
-              label: "公开视频",
-              downloadable: true,
+              url: isReadyVideo ? `https://cdn.example.com/preview-${id}.mp4` : "",
+              kind: isReadyVideo ? "direct_file" : "unsupported",
+              label: isReadyVideo ? "公开视频" : "页面未公开视频地址",
+              downloadable: isReadyVideo,
             },
           ],
-          limitation: "只下载页面公开声明的 HTTPS 视频文件。",
+          limitation: isReadyVideo
+            ? "只下载页面公开声明的 HTTPS 视频文件。"
+            : "公开页面没有提供视频直链；如需继续，必须由用户明确授权临时嗅探，并在结束后恢复网络。",
         }
       : null,
   };
@@ -98,6 +101,7 @@ const fixtures: CaptureTaskDetail[] = [
 
 export function createPreviewBackend(): Backend {
   let records = structuredClone(fixtures);
+  let nextTaskId = 13;
 
   return {
     listTasks: async () => structuredClone(records),
@@ -106,10 +110,36 @@ export function createPreviewBackend(): Backend {
       if (!record) throw new Error("没有找到任务");
       return structuredClone(record);
     },
-    submitLinks: async (): Promise<SubmitLinksResult> => ({
-      tasks: [],
-      duplicateCount: 0,
-    }),
+    submitLinks: async (rawText): Promise<SubmitLinksResult> => {
+      const shareUrl = rawText.trim();
+      const existing = records.find((item) => item.task.shareUrl === shareUrl);
+      if (existing) {
+        return {
+          tasks: [structuredClone(existing.task)],
+          duplicateCount: 1,
+        };
+      }
+
+      const isVideo = previewShareKind(shareUrl) === "video";
+      const created = task(
+        nextTaskId,
+        isVideo ? "公开影像测试源" : "公开文章测试源",
+        isVideo ? "测试视频：自动收取与分类演示" : "测试文档：自动收取与分类演示",
+        isVideo ? "video" : "article",
+        "ready",
+        isVideo ? "识别到 1 个可下载的公开视频" : "内容读取完成，可导出",
+        59,
+      );
+      created.task.shareUrl = shareUrl;
+      if (created.article) created.article.canonicalUrl = shareUrl;
+      if (created.video) created.video.pageUrl = shareUrl;
+      nextTaskId += 1;
+      records = [created, ...records];
+      return {
+        tasks: [structuredClone(created.task)],
+        duplicateCount: 0,
+      };
+    },
     processTask: async (taskId) => {
       const record = records.find((item) => item.task.id === taskId);
       if (!record) throw new Error("没有找到任务");
@@ -209,4 +239,9 @@ export function createPreviewBackend(): Backend {
     openExternal: async () => undefined,
     revealOutput: async () => undefined,
   };
+}
+
+function previewShareKind(shareUrl: string): "article" | "video" {
+  const url = new URL(shareUrl);
+  return url.hostname === "mp.weixin.qq.com" ? "article" : "video";
 }

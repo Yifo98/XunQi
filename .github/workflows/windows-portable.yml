@@ -1,4 +1,4 @@
-name: Windows source preview
+name: Windows source and BAT package
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  build-windows-portable:
+  build-windows-source-package:
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
@@ -19,7 +19,7 @@ jobs:
         shell: pwsh
         run: |
           $Version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          "name=XunQi-$Version-Windows-x64-source-preview" >> $env:GITHUB_OUTPUT
+          "name=XunQi-$Version-Windows-x64-source-BAT" >> $env:GITHUB_OUTPUT
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -44,14 +44,11 @@ jobs:
       - name: Test Rust on Windows
         run: cargo test --release --manifest-path src-tauri/Cargo.toml
 
-      - name: Build plain Windows binary
-        run: pnpm tauri build --no-bundle --config src-tauri/tauri.windows.conf.json
-
-      - name: Build portable ZIP
+      - name: Build source and BAT ZIP
         shell: pwsh
-        run: ./scripts/package-windows-portable.ps1
+        run: ./scripts/package-windows-source.ps1
 
-      - name: Upload Windows candidate
+      - name: Upload Windows source package
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.package.outputs.name }}

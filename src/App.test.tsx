@@ -26,6 +26,42 @@ describe("讯栖多任务工作台", () => {
     expect(screen.getByRole("button", { name: /公开直链识别演示/ })).toBeInTheDocument();
   });
 
+  it("可按当前公众号或视频号筛选结果一键全选，并在切换筛选时保留选择", async () => {
+    const user = userEvent.setup();
+    render(<App backend={createPreviewBackend()} />);
+
+    await screen.findByText("捕获任务");
+    await user.click(screen.getByRole("tab", { name: /公众号 6/ }));
+    await user.click(screen.getByRole("button", { name: "全选公众号 6 项" }));
+    expect(screen.getByText("已选 6 项")).toBeInTheDocument();
+    expect(screen.getByText("公众号 6")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /视频号 6/ }));
+    expect(screen.getByText("已选 6 项")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "全选视频号 6 项" }));
+    expect(screen.getByText("已选 12 项")).toBeInTheDocument();
+    expect(screen.getByText("公众号 6 · 视频号 6")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "取消当前视频号 6 项" }));
+    expect(screen.getByText("已选 6 项")).toBeInTheDocument();
+    expect(screen.getByText("公众号 6")).toBeInTheDocument();
+  });
+
+  it("从全部筛选后切换分类时可明确取消全部已选项", async () => {
+    const user = userEvent.setup();
+    render(<App backend={createPreviewBackend()} />);
+
+    await screen.findByText("捕获任务");
+    await user.click(screen.getByRole("button", { name: "全选全部 12 项" }));
+    expect(screen.getByText("已选 12 项")).toBeInTheDocument();
+    expect(screen.getByText("公众号 6 · 视频号 6")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /视频号 6/ }));
+    expect(screen.getByRole("button", { name: "取消当前视频号 6 项" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "取消全部已选 12 项" }));
+    expect(screen.queryByText(/^已选 \d+ 项$/)).not.toBeInTheDocument();
+  });
+
   it("把微信分享链接粘贴到搜索框时改为收取任务而不是过滤列表", async () => {
     const user = userEvent.setup();
     const backend = createPreviewBackend();
@@ -51,12 +87,20 @@ describe("讯栖多任务工作台", () => {
     expect(screen.queryByText("没有匹配的任务")).not.toBeInTheDocument();
   });
 
-  it("在标题区以原创题记解释讯栖之名", async () => {
+  it("展示 QIDU 品牌题记，并在关于页说明本地与授权边界", async () => {
+    const user = userEvent.setup();
     render(<App backend={createPreviewBackend()} />);
 
     const [header] = await screen.findAllByRole("banner");
+    expect(within(header).getByText(/讯栖/)).toHaveTextContent("讯栖 XunQi");
     expect(within(header).getByText("讯来有迹，文止于栖。")).toBeInTheDocument();
-    expect(within(header).getByText("讯者，消息之所至；栖者，文章之所安。")).toBeInTheDocument();
+    expect(within(header).getByText("A QIDU Utility")).toBeInTheDocument();
+
+    await user.click(within(header).getByRole("button", { name: "关于" }));
+    const dialog = screen.getByRole("dialog", { name: "讯栖 XunQi" });
+    expect(within(dialog).getByText("栖 · CHAPTER 01")).toBeInTheDocument();
+    expect(within(dialog).getByText(/只接住你主动复制的微信分享链接/)).toBeInTheDocument();
+    expect(within(dialog).getByText("明确授权")).toBeInTheDocument();
   });
 
   it("在右侧一次处理勾选的公众号并导出 PDF，不把视频号加入批量下载", async () => {
@@ -439,11 +483,16 @@ describe("讯栖多任务工作台", () => {
 
     await waitFor(() => expect(startVideoSniff).toHaveBeenCalledTimes(2));
     expect(chooseOutputDirectory).toHaveBeenCalledTimes(1);
-    expect(startVideoSniff).toHaveBeenLastCalledWith(102, "plan-102", "/tmp/xunqi-test-downloads");
+    expect(startVideoSniff).toHaveBeenLastCalledWith(
+      102,
+      "plan-102",
+      "/tmp/xunqi-test-downloads",
+      "original",
+    );
     expect(screen.queryByRole("dialog", { name: "启用授权嗅探助手" })).not.toBeInTheDocument();
   });
 
-  it("勾选多个视频后按单并发队列自动接续且只授权一次", async () => {
+  it("勾选多个视频后按单任务校验队列自动接续，并把节省空间模式传到底层", async () => {
     const user = userEvent.setup();
     const backend = createPreviewBackend();
     const template = (await backend.listTasks()).find(({ task }) => task.kind === "video")!;
@@ -504,16 +553,117 @@ describe("讯栖多任务工作台", () => {
 
     render(<App backend={backend} />);
 
+    await user.selectOptions(await screen.findByLabelText("视频下载画质"), "space_saver");
     await user.click(await screen.findByRole("checkbox", { name: "选择队列视频 201" }));
     await user.click(screen.getByRole("checkbox", { name: "选择队列视频 202" }));
     await user.click(screen.getByRole("button", { name: "开始连续下载 2 条" }));
     await user.click(await screen.findByRole("button", { name: "同意并启用" }));
 
     await waitFor(() => expect(startVideoSniff).toHaveBeenCalledTimes(2));
-    expect(startVideoSniff).toHaveBeenNthCalledWith(1, 201, "plan-201", "/tmp/xunqi-test-downloads");
-    expect(startVideoSniff).toHaveBeenNthCalledWith(2, 202, "plan-202", "/tmp/xunqi-test-downloads");
+    expect(startVideoSniff).toHaveBeenNthCalledWith(1, 201, "plan-201", "/tmp/xunqi-test-downloads", "space_saver");
+    expect(startVideoSniff).toHaveBeenNthCalledWith(2, 202, "plan-202", "/tmp/xunqi-test-downloads", "space_saver");
     expect(chooseOutputDirectory).toHaveBeenCalledTimes(1);
     expect(await screen.findByText(/队列完成 2\/2/)).toBeInTheDocument();
+  });
+
+  it("批量队列会跳过已经保存到本地的视频，不会再次等待它们播放", async () => {
+    const user = userEvent.setup();
+    const backend = createPreviewBackend();
+    const template = (await backend.listTasks()).find(({ task }) => task.kind === "video")!;
+    const saved = {
+      ...structuredClone(template),
+      task: {
+        ...template.task,
+        id: 301,
+        title: "已保存视频",
+        status: "needs_attention" as const,
+        completedPath: "/tmp/已保存视频.mp4",
+      },
+      video: { ...template.video!, candidates: [] },
+    };
+    const pending = {
+      ...structuredClone(template),
+      task: {
+        ...template.task,
+        id: 302,
+        title: "待下载视频",
+        status: "needs_attention" as const,
+        completedPath: null,
+      },
+      video: { ...template.video!, candidates: [] },
+    };
+    backend.listTasks = async () => [saved, pending];
+    backend.getTaskDetail = async (taskId) => taskId === saved.task.id ? saved : pending;
+    const prepareVideoSniff = vi.fn(async (taskId: number) => ({
+      planId: `plan-${taskId}`,
+      taskId,
+      expiresAt: "2099-01-01T00:00:00Z",
+      canStart: true,
+      changes: ["temporary_proxy", "temporary_certificate"] as const,
+      reusesAuthorization: false,
+      helperSource: "ltaoo/wx_channels_download v260706",
+      conflict: null,
+    }));
+    Object.assign(backend, { prepareVideoSniff });
+
+    render(<App backend={backend} />);
+
+    await user.click(await screen.findByRole("button", { name: "全选全部 2 项" }));
+    expect(screen.getByRole("button", { name: "开始连续下载 1 条" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "开始连续下载 1 条" }));
+    expect(prepareVideoSniff).toHaveBeenCalledWith(302);
+    expect(prepareVideoSniff).not.toHaveBeenCalledWith(301);
+  });
+
+  it("队列任务失败并已恢复网络时会结束处理状态，不再永久转圈", async () => {
+    const user = userEvent.setup();
+    const backend = createPreviewBackend();
+    const template = (await backend.listTasks()).find(({ task }) => task.kind === "video")!;
+    const videos = [401, 402].map((id) => ({
+      ...structuredClone(template),
+      task: {
+        ...template.task,
+        id,
+        title: `失败队列视频 ${id}`,
+        status: "needs_attention" as const,
+        completedPath: null,
+      },
+      video: { ...template.video!, candidates: [] },
+    }));
+    backend.listTasks = async () => videos;
+    backend.getTaskDetail = async (taskId) => videos.find(({ task }) => task.id === taskId)!;
+    backend.prepareVideoSniff = vi.fn(async (taskId: number) => ({
+      planId: `plan-${taskId}`,
+      taskId,
+      expiresAt: "2099-01-01T00:00:00Z",
+      canStart: true,
+      changes: ["temporary_proxy", "temporary_certificate"] as const,
+      reusesAuthorization: false,
+      helperSource: "ltaoo/wx_channels_download v260706",
+      conflict: null,
+    }));
+    backend.startVideoSniff = vi.fn(async (taskId: number) => ({
+      sessionId: `session-${taskId}`,
+      taskId,
+      phase: "failed_restored" as const,
+      message: "等待视频号连接超时，网络设置已恢复。",
+      helperPageUrl: null,
+      destinationDirectory: "/tmp/xunqi-test-downloads",
+      authorizationReusable: false,
+      progress: null,
+      output: null,
+      errorCode: "capture_timeout",
+    }));
+
+    render(<App backend={backend} />);
+
+    await user.click(await screen.findByRole("button", { name: "全选全部 2 项" }));
+    await user.click(screen.getByRole("button", { name: "开始连续下载 2 条" }));
+    await user.click(await screen.findByRole("button", { name: "同意并启用" }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "队列处理中" })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "开始连续下载 2 条" })).toBeInTheDocument();
+    expect(screen.getAllByText(/等待视频号连接超时/).length).toBeGreaterThan(0);
   });
 
   it("启动恢复失败时保留阻断式恢复入口，恢复成功后才移除", async () => {

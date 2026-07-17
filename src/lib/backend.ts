@@ -108,6 +108,8 @@ export type SniffAuthorizationPlan = {
   };
 };
 
+export type SniffQualityMode = "original" | "space_saver";
+
 export type SniffPhase =
   | "starting"
   | "awaiting_playback"
@@ -169,6 +171,7 @@ export interface Backend {
     taskId: number,
     planId: string,
     destinationDir: string,
+    qualityMode: SniffQualityMode,
   ): Promise<SniffSessionSnapshot>;
   getVideoSniffSession(sessionId: string): Promise<SniffSessionSnapshot>;
   stopVideoSniff(sessionId: string): Promise<SniffSessionSnapshot>;
@@ -196,11 +199,12 @@ export const tauriBackend: Backend = {
     }),
   prepareVideoSniff: (taskId) =>
     invoke<SniffAuthorizationPlan>("prepare_video_sniff", { taskId }),
-  startVideoSniff: (taskId, planId, destinationDir) =>
+  startVideoSniff: (taskId, planId, destinationDir, qualityMode) =>
     invoke<SniffSessionSnapshot>("start_video_sniff", {
       taskId,
       planId,
       destinationDir,
+      qualityMode,
     }),
   getVideoSniffSession: (sessionId) =>
     invoke<SniffSessionSnapshot>("get_video_sniff_session", { sessionId }),

@@ -16,7 +16,7 @@ pub use application::Application;
 pub use article_assets::{ArticleAsset, ArticleAssetFetcher, PublicArticleAssetFetcher};
 pub use authorized_sniffer::{
     AuthorizedSniffer, NativeSnifferRuntime, SniffAuthorizationPlan, SniffConflict, SniffOutput,
-    SniffPhase, SniffRecoveryResult, SniffSessionSnapshot, SniffSystemChange,
+    SniffPhase, SniffQualityMode, SniffRecoveryResult, SniffSessionSnapshot, SniffSystemChange,
 };
 pub use content_inspector::{ContentInspector, PublicContentInspector};
 pub use domain::{
@@ -32,6 +32,29 @@ pub use processor::CaptureProcessor;
 pub use public_http::is_allowed_public_https_url;
 
 use tauri::{Manager, State};
+
+#[cfg(target_os = "macos")]
+fn configure_macos_runtime_icon() -> Result<(), String> {
+    use objc2::{AllocAnyThread, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::NSData;
+
+    let main_thread =
+        MainThreadMarker::new().ok_or_else(|| "讯栖只能在 macOS 主线程设置运行图标".to_string())?;
+    let icon_data = NSData::with_bytes(include_bytes!("../icons/icon.png"));
+    let icon = NSImage::initWithData(NSImage::alloc(), &icon_data)
+        .ok_or_else(|| "无法读取讯栖运行图标".to_string())?;
+
+    unsafe {
+        NSApplication::sharedApplication(main_thread).setApplicationIconImage(Some(&icon));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn configure_macos_runtime_icon() -> Result<(), String> {
+    Ok(())
+}
 
 #[tauri::command]
 fn list_capture_tasks(
@@ -116,10 +139,11 @@ async fn start_video_sniff(
     task_id: i64,
     plan_id: String,
     destination_dir: String,
+    quality_mode: SniffQualityMode,
 ) -> Result<SniffSessionSnapshot, String> {
     let application = application.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        application.start_video_sniff(task_id, &plan_id, destination_dir)
+        application.start_video_sniff(task_id, &plan_id, destination_dir, quality_mode)
     })
     .await
     .map_err(|error| format!("授权嗅探助手意外中断：{error}"))?
@@ -185,6 +209,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            configure_macos_runtime_icon().map_err(std::io::Error::other)?;
             let app_data_dir = app.path().app_data_dir()?;
             let application = Application::open(app_data_dir.join("v2").join("xunqi.db"))
                 .map_err(|error| std::io::Error::other(error.to_string()))?;

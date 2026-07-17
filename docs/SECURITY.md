@@ -14,6 +14,12 @@
 - 助手使用固定版本和 SHA-256 校验，不使用不受控的“下载最新版”。
 - 不用于绕过账号权限、付费、DRM 或平台访问控制。
 
+## Windows 应用控制
+
+Windows 公开候选包只包含完整源码与 `Launch-XunQi.bat`，不直接分发 XunQi EXE、DLL 或安装器。BAT 不能绕过 Smart App Control；其启动的开发工具和本地构建产物仍可能被系统策略检查。完整判断、微软官方依据和正式签名门槛见 [Windows Smart App Control 边界](SMART-APP-CONTROL.md)。
+
+当前预览版没有 Windows 商业代码签名。签名不是讯栖的功能依赖，也不会授予读取聊天记录、账号或本地文件的权限；未被 Windows 策略拦截时不影响功能使用。它影响的是 Windows 能否确认发布者身份和文件完整性。遇到提醒时应先核对 GitHub 来源、SHA-256 和 Defender 扫描结果，再按 [拦截处理步骤](SMART-APP-CONTROL.md#用户遇到拦截时) 区分下载来源标记、Smart App Control 与组织策略。讯栖不会自动关闭任何 Windows 安全功能。
+
 ## 第三方组件
 
 macOS 授权嗅探使用固定版本的 `ltaoo/wx_channels_download`，来源、提交、发布包校验值和许可文本见 `assets/portable/第三方许可-wx_channels_download.txt`。其许可包含 Commons Clause，发布包仅供个人免费使用和验证，不得直接用于收费或商业销售。

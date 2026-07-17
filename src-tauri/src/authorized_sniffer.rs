@@ -40,6 +40,13 @@ pub enum SniffSystemChange {
     TemporaryCertificate,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SniffQualityMode {
+    Original,
+    SpaceSaver,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SniffConflict {
@@ -130,6 +137,7 @@ pub(crate) struct RuntimeStartRequest {
     pub expected_title: String,
     pub share_url: String,
     pub destination_dir: PathBuf,
+    pub quality_mode: SniffQualityMode,
 }
 
 #[derive(Debug, Clone)]
@@ -246,6 +254,7 @@ impl AuthorizedSniffer {
         detail: &CaptureTaskDetail,
         plan_id: &str,
         destination_dir: impl AsRef<Path>,
+        quality_mode: SniffQualityMode,
     ) -> Result<SniffSessionSnapshot, AppError> {
         validate_eligibility(detail)?;
         let destination_dir = destination_dir.as_ref();
@@ -297,6 +306,7 @@ impl AuthorizedSniffer {
             expected_title: detail.task.title.clone(),
             share_url: detail.task.share_url.clone(),
             destination_dir: destination_dir.to_path_buf(),
+            quality_mode,
         };
         let runtime = match self.runtime.start(&request) {
             Ok(snapshot) => snapshot,
@@ -556,11 +566,21 @@ mod tests {
         assert_eq!(runtime.calls(), vec!["preflight"]);
 
         let session = sniffer
-            .start(&detail, &plan.plan_id, directory.path())
+            .start(
+                &detail,
+                &plan.plan_id,
+                directory.path(),
+                SniffQualityMode::Original,
+            )
             .unwrap();
         assert_eq!(session.phase, SniffPhase::AwaitingPlayback);
         assert_eq!(runtime.calls(), vec!["preflight", "start"]);
-        let second = sniffer.start(&detail, &plan.plan_id, directory.path());
+        let second = sniffer.start(
+            &detail,
+            &plan.plan_id,
+            directory.path(),
+            SniffQualityMode::Original,
+        );
         assert!(second.is_err());
     }
 
@@ -572,7 +592,12 @@ mod tests {
         let directory = tempdir().unwrap();
         let first_plan = sniffer.prepare(&first).unwrap();
         let first_session = sniffer
-            .start(&first, &first_plan.plan_id, directory.path())
+            .start(
+                &first,
+                &first_plan.plan_id,
+                directory.path(),
+                SniffQualityMode::Original,
+            )
             .unwrap();
         sniffer
             .update_active(
@@ -628,7 +653,12 @@ mod tests {
         fs::create_dir_all(directory.path()).unwrap();
         let plan = sniffer.prepare(&detail).unwrap();
         let session = sniffer
-            .start(&detail, &plan.plan_id, directory.path())
+            .start(
+                &detail,
+                &plan.plan_id,
+                directory.path(),
+                SniffQualityMode::Original,
+            )
             .unwrap();
 
         let stopped = sniffer.stop(&session.session_id).unwrap();
@@ -648,7 +678,12 @@ mod tests {
         let directory = tempdir().unwrap();
         let plan = sniffer.prepare(&detail).unwrap();
         let session = sniffer
-            .start(&detail, &plan.plan_id, directory.path())
+            .start(
+                &detail,
+                &plan.plan_id,
+                directory.path(),
+                SniffQualityMode::Original,
+            )
             .unwrap();
         let destination = directory.path().join("saved.mp4").display().to_string();
         sniffer

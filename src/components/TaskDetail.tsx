@@ -17,6 +17,7 @@ import type {
   CaptureStatus,
   CaptureTaskDetail,
   DetectedVideo,
+  SniffQualityMode,
   SniffSessionSnapshot,
 } from "../lib/backend";
 
@@ -30,6 +31,8 @@ type TaskDetailProps = {
   onStopSniff: (sessionId: string) => void;
   onRecoverSniff: () => void;
   sniffSession: SniffSessionSnapshot | null;
+  videoQualityMode: SniffQualityMode;
+  onVideoQualityModeChange: (mode: SniffQualityMode) => void;
   onOpenOriginal: (url: string) => void;
   onRevealOutput: (path: string) => void;
   articleBatch: {
@@ -42,10 +45,14 @@ type TaskDetailProps = {
   };
   videoQueue: {
     selectedCount: number;
+    skippedCount: number;
     running: boolean;
     progressLabel: string | null;
     onStart: () => void;
     onClearSelection: () => void;
+    qualityMode: SniffQualityMode;
+    onQualityModeChange: (mode: SniffQualityMode) => void;
+    qualityLocked: boolean;
   };
 };
 
@@ -59,6 +66,8 @@ export function TaskDetail({
   onStopSniff,
   onRecoverSniff,
   sniffSession,
+  videoQualityMode,
+  onVideoQualityModeChange,
   onOpenOriginal,
   onRevealOutput,
   articleBatch,
@@ -72,6 +81,7 @@ export function TaskDetail({
         <img src={logoUrl} alt="讯栖" />
         <h2>等待微信分享链接</h2>
         <p>在微信中打开文章或视频号，点“分享 → 复制链接”，任务会自动出现在左侧。</p>
+        <span className="empty-brand-note">讯来有迹，文止于栖。只接住你主动选择的内容。</span>
       </main>
     );
   }
@@ -105,6 +115,7 @@ export function TaskDetail({
             busy={busy}
             sniffSession={taskSniffSession}
             authorizationReusable={sniffSession?.authorizationReusable === true}
+            qualityMode={videoQualityMode}
             onStopSniff={onStopSniff}
             onRecoverSniff={onRecoverSniff}
           />
@@ -166,11 +177,19 @@ export function TaskDetail({
                   ? `连续下载 ${videoQueue.progressLabel}`
                   : `已选 ${videoQueue.selectedCount} 条视频号`}
               </strong>
-              <p>单并发稳定模式：一条完成后自动接下一条，只需首次授权一次。</p>
+              <p>
+                每条独立校验，完成后自动接下一条；同一队列只需首次授权一次。
+                {videoQueue.skippedCount > 0 ? ` 已跳过 ${videoQueue.skippedCount} 条已保存或不需要嗅探的视频。` : ""}
+              </p>
             </div>
           </div>
           <div className="detail-action-buttons">
-            <span className="queue-concurrency-badge">并发 1</span>
+            <QualitySelect
+              value={videoQueue.qualityMode}
+              onChange={videoQueue.onQualityModeChange}
+              disabled={videoQueue.running || videoQueue.qualityLocked}
+            />
+            <span className="queue-concurrency-badge">单任务校验 · 自动续接</span>
             <button
               type="button"
               className="secondary-action"
@@ -200,6 +219,12 @@ export function TaskDetail({
               <option value="markdown">Markdown + 本地图片</option>
             </select>
           </label>
+        ) : task.kind === "video" && video && !downloadable ? (
+          <QualitySelect
+            value={videoQualityMode}
+            onChange={onVideoQualityModeChange}
+            disabled={busy || isActiveSniff(sniffSession) || sniffSession?.authorizationReusable === true}
+          />
         ) : (
           <span className="detail-capability">
             {task.kind === "video" ? <VideoCameraIcon size={18} /> : <FileTextIcon size={18} />}
@@ -316,6 +341,7 @@ function VideoDetail({
   busy,
   sniffSession,
   authorizationReusable,
+  qualityMode,
   onStopSniff,
   onRecoverSniff,
 }: {
@@ -325,6 +351,7 @@ function VideoDetail({
   busy: boolean;
   sniffSession: SniffSessionSnapshot | null;
   authorizationReusable: boolean;
+  qualityMode: SniffQualityMode;
   onStopSniff: (sessionId: string) => void;
   onRecoverSniff: () => void;
 }) {
@@ -407,7 +434,7 @@ function VideoDetail({
             <div className="sniff-media-summary" aria-label="视频基础信息">
               <div>
                 <span>画质</span>
-                <strong>{sniffSession.output?.qualityLabel ?? "原始画质"}</strong>
+                <strong>{sniffSession.output?.qualityLabel ?? qualityModeLabel(qualityMode)}</strong>
               </div>
               <div>
                 <span>{sniffSession.output ? "文件大小" : "预计大小"}</span>
@@ -425,7 +452,9 @@ function VideoDetail({
                   : "完成后读取"}</strong>
               </div>
             </div>
-            <p className="sniff-media-note">当前分享接口只提供原始视频流，没有可靠的多画质列表；讯栖不会伪造画质选项。</p>
+            <p className="sniff-media-note">{qualityMode === "original"
+              ? "本次按原始视频保存；实际分辨率和大小会在下载后读取。"
+              : "本次使用微信返回的默认规格以节省空间；实际分辨率和大小会在下载后读取。"}</p>
             {sniffSession.destinationDirectory && (
               <p className="sniff-destination">保存到 {sniffSession.destinationDirectory}</p>
             )}
@@ -478,6 +507,35 @@ function VideoDetail({
 
 function isActiveSniff(session: SniffSessionSnapshot | null) {
   return session !== null && ["starting", "awaiting_playback", "capturing", "saving", "restoring"].includes(session.phase);
+}
+
+function QualitySelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: SniffQualityMode;
+  onChange: (mode: SniffQualityMode) => void;
+  disabled: boolean;
+}) {
+  return (
+    <label className="format-select quality-select">
+      <VideoCameraIcon size={18} />
+      <select
+        aria-label="视频下载画质"
+        value={value}
+        onChange={(event) => onChange(event.target.value as SniffQualityMode)}
+        disabled={disabled}
+      >
+        <option value="original">原始画质（文件较大）</option>
+        <option value="space_saver">节省空间（微信默认）</option>
+      </select>
+    </label>
+  );
+}
+
+function qualityModeLabel(mode: SniffQualityMode) {
+  return mode === "original" ? "原始画质" : "节省空间（微信默认）";
 }
 
 function sniffPhaseTitle(phase: SniffSessionSnapshot["phase"]) {
