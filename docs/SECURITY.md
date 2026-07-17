@@ -6,24 +6,24 @@
 
 ## 授权嗅探
 
-授权嗅探不是零风险功能：它会临时修改 macOS 系统代理并信任一张本地会话证书。因此产品采取以下限制：
+授权嗅探不是零风险功能：它会临时修改 macOS 或 Windows 系统代理并信任一张本地会话证书。Windows 试验适配只将证书写入当前用户的 `CurrentUser\Root`，不使用指纹授权；根据系统或企业策略，首次可能出现证书信任确认。因此产品采取以下限制：
 
 - 必须由用户在当前视频任务中明确授权。
 - 启动前检查 VPN 与已有系统代理，检测到冲突时拒绝覆盖。
-- 关闭、取消、失败和崩溃恢复均进入网络设置回滚边界。
+- 关闭、取消、失败和崩溃恢复均进入网络设置回滚边界；Windows 按会话证书指纹精确移除，不按名称批量删除。
 - 助手使用固定版本和 SHA-256 校验，不使用不受控的“下载最新版”。
 - 不用于绕过账号权限、付费、DRM 或平台访问控制。
 
 ## Windows 应用控制
 
-Windows 公开候选包只包含完整源码与 `Launch-XunQi.bat`，不直接分发 XunQi EXE、DLL 或安装器。BAT 不能绕过 Smart App Control；其启动的开发工具和本地构建产物仍可能被系统策略检查。完整判断、微软官方依据和正式签名门槛见 [Windows Smart App Control 边界](SMART-APP-CONTROL.md)。
+Windows 有两条明确分开的交付路径：普通用户候选包包含由 GitHub 原生 Windows Runner 从公开源码构建的 `runtime/xunqi.exe` 与 BAT，不要求本机开发工具；开发者包包含完整源码与源码启动 BAT。两者都没有商业代码签名，BAT 也不能绕过 Smart App Control；运行文件与开发工具仍可能被系统策略检查。完整判断、微软官方依据和正式签名门槛见 [Windows Smart App Control 边界](SMART-APP-CONTROL.md)。
 
 当前预览版没有 Windows 商业代码签名。签名不是讯栖的功能依赖，也不会授予读取聊天记录、账号或本地文件的权限；未被 Windows 策略拦截时不影响功能使用。它影响的是 Windows 能否确认发布者身份和文件完整性。遇到提醒时应先核对 GitHub 来源、SHA-256 和 Defender 扫描结果，再按 [拦截处理步骤](SMART-APP-CONTROL.md#用户遇到拦截时) 区分下载来源标记、Smart App Control 与组织策略。讯栖不会自动关闭任何 Windows 安全功能。
 
 ## 第三方组件
 
-macOS 授权嗅探使用固定版本的 `ltaoo/wx_channels_download`，来源、提交、发布包校验值和许可文本见 `assets/portable/第三方许可-wx_channels_download.txt`。其许可包含 Commons Clause，发布包仅供个人免费使用和验证，不得直接用于收费或商业销售。
+macOS 与 Windows 试验授权嗅探均使用固定版本和 SHA-256 校验的 `ltaoo/wx_channels_download`，来源、发布包校验值和许可文本会随包附带。其许可包含 Commons Clause，发布包仅供个人免费使用和验证，不得直接用于收费或商业销售。
 
 ## 报告问题
 
-请在 GitHub 创建 Issue，但不要上传 Cookie、账号标识、私密聊天、密码、令牌或未脱敏日志。
+请先使用顶部“导出日志”生成受控日志，再在 GitHub 创建 Issue。不要上传 Cookie、账号标识、私密聊天、密码、令牌、文章正文或自行抓取的未脱敏日志。

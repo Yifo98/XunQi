@@ -12,6 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AppError, CaptureKind, CaptureTaskDetail};
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+mod native;
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[path = "authorized_sniffer/native_unsupported.rs"]
 mod native;
 
 pub use native::NativeSnifferRuntime;

@@ -66,12 +66,75 @@ pub fn refresh_wechat_channels_network() -> Result<WechatChannelsNetworkRefreshR
     })
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub fn refresh_wechat_channels_network() -> Result<WechatChannelsNetworkRefreshResult, AppError> {
     Ok(WechatChannelsNetworkRefreshResult {
         refreshed: false,
         message: "当前首版只支持在 macOS 上重新加载微信视频号子窗口".into(),
     })
+}
+
+#[cfg(target_os = "windows")]
+pub fn refresh_wechat_channels_network() -> Result<WechatChannelsNetworkRefreshResult, AppError> {
+    use std::{process::Command, thread, time::Duration};
+
+    let script = r#"
+$ErrorActionPreference = 'Stop'
+$processes = Get-CimInstance Win32_Process |
+  Where-Object {
+    ($_.Name -eq 'WeChatAppEx.exe' -or $_.Name -eq 'WeixinAppEx.exe') -and
+    $_.CommandLine -match '(?:^|\s)--product-id(?:=|\s+)1002(?:\s|$)'
+  }
+$processes | ForEach-Object { [Console]::Out.WriteLine($_.ProcessId) }
+"#;
+    let output = Command::new("powershell.exe")
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            script,
+        ])
+        .output()
+        .map_err(|error| AppError::Content(format!("无法检查微信视频号子窗口：{error}")))?;
+    if !output.status.success() {
+        return Err(AppError::Content(format!(
+            "无法检查微信视频号子窗口：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    let process_ids = parse_windows_process_ids(&String::from_utf8_lossy(&output.stdout));
+    if process_ids.is_empty() {
+        return Ok(WechatChannelsNetworkRefreshResult {
+            refreshed: false,
+            message: "视频号子窗口当前没有打开。请从微信左侧重新进入“视频号”；不用退出微信。"
+                .into(),
+        });
+    }
+    for process_id in process_ids {
+        let status = Command::new("taskkill.exe")
+            .args(["/PID", &process_id.to_string(), "/T", "/F"])
+            .status()?;
+        if !status.success() {
+            return Err(AppError::Content(format!(
+                "无法重新加载微信视频号子窗口（PID {process_id}）"
+            )));
+        }
+    }
+    thread::sleep(Duration::from_millis(900));
+    Ok(WechatChannelsNetworkRefreshResult {
+        refreshed: true,
+        message: "已重新加载视频号子窗口，微信聊天主程序保持打开。请从微信左侧重新进入“视频号”；讯栖会按已复制的分享链接自动下载。".into(),
+    })
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn parse_windows_process_ids(output: &str) -> Vec<u32> {
+    output
+        .lines()
+        .filter_map(|line| line.trim().parse::<u32>().ok())
+        .filter(|value| *value != 0)
+        .collect()
 }
 
 fn wechat_channels_view_process_ids(process_list: &str) -> Vec<u32> {
@@ -121,12 +184,9 @@ fn is_wechat_bundle_identifier(value: &str) -> bool {
 #[cfg(target_os = "windows")]
 pub fn detect_wechat_foreground() -> WechatForegroundStatus {
     let executable_path = windows_foreground_executable();
-    let application_name = executable_path.as_deref().and_then(|value| {
-        value
-            .rsplit(['\\', '/'])
-            .next()
-            .map(ToOwned::to_owned)
-    });
+    let application_name = executable_path
+        .as_deref()
+        .and_then(|value| value.rsplit(['\\', '/']).next().map(ToOwned::to_owned));
     let is_wechat_frontmost = executable_path
         .as_deref()
         .is_some_and(is_windows_wechat_executable);
@@ -190,7 +250,7 @@ fn is_windows_wechat_executable(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_wechat_bundle_identifier, is_windows_wechat_executable,
+        is_wechat_bundle_identifier, is_windows_wechat_executable, parse_windows_process_ids,
         wechat_channels_view_process_ids,
     };
 
@@ -211,9 +271,15 @@ mod tests {
         assert!(is_windows_wechat_executable(
             r"C:\Program Files\Tencent\WeChat\WeChatAppEx.exe"
         ));
-        assert!(!is_windows_wechat_executable(
-            r"C:\Tools\XunQi\XunQi.exe"
-        ));
+        assert!(!is_windows_wechat_executable(r"C:\Tools\XunQi\XunQi.exe"));
+    }
+
+    #[test]
+    fn parses_only_valid_windows_channels_process_ids() {
+        assert_eq!(
+            parse_windows_process_ids("1024\r\ninvalid\r\n2048\r\n0\r\n"),
+            vec![1024, 2048]
+        );
     }
 
     #[test]
