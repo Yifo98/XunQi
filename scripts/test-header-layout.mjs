@@ -13,7 +13,7 @@ const ruleFor = (selector) => {
 };
 
 const topActions = ruleFor(".listening-status-top");
-const aboutButton = ruleFor(".about-button,\n.link-guide-button");
+const aboutButton = css.match(/\.about-button,\s*\.link-guide-button\s*\{([^}]*)\}/s)?.[1] ?? "";
 const compactHeaderStart = css.indexOf("@media (max-width: 1180px)");
 const compactHeaderEnd = css.indexOf("@media (max-width: 1050px)");
 const compactHeader = compactHeaderStart >= 0 && compactHeaderEnd > compactHeaderStart
