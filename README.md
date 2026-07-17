@@ -7,7 +7,7 @@
 
 讯者，消息之所至；栖者，文章之所安。讯栖是一款本地优先的微信链接捕获与导出工具：它在用户主动复制分享链接后识别公众号文章或视频号页面，让用户自行查看、选择并保存到本地。
 
-当前正式版本为 **0.5.0**。macOS Apple Silicon 已完成本地运行、导出与授权下载流程验证；Windows 已新增由原生 Windows Runner 构建的免开发环境便携包流程，仍需完成 Runner 与真机验收后才会追加到 Release。仓库截图、测试数据和演示链接均为虚构内容，不包含真实公众号、视频号或用户任务。
+当前正式版本为 **0.5.0**。macOS Apple Silicon 已完成本地运行、导出与授权下载流程验证；Windows 免开发环境便携候选包已通过原生 Windows Runner 的测试、构建与包内容校验，待 Windows 真机功能验收后再追加到 Release。仓库截图、测试数据和演示链接均为虚构内容，不包含真实公众号、视频号或用户任务。
 
 ![讯栖公开演示界面](assets/reference/xunqi-public-demo.png)
 
@@ -27,9 +27,9 @@
 | 平台 | 压缩包 | 当前状态 |
 | --- | --- | --- |
 | macOS Apple Silicon | `XunQi-0.5.0-macOS-arm64-source.zip` | 正式版；包含运行文件、源码和 `.command` 启动器，无 `.app` |
-| Windows x64 | `XunQi-0.5.0-Windows-x64-portable-unsigned.zip` | 普通用户候选包；免 Node.js / pnpm / Rust / MSVC，待原生 Runner 与真机验收后发布 |
+| Windows x64 | `XunQi-0.5.0-Windows-x64-portable-unsigned.zip` | 普通用户候选包；原生 Runner 已通过，免 Node.js / pnpm / Rust / MSVC，待真机验收后发布 |
 
-请从 [GitHub Releases](https://github.com/Yifo98/XunQi/releases/tag/v0.5.0) 下载。`v0.5.0` 当前只提供已经验证的 macOS 包和对应 SHA-256；Windows 便携包会由 GitHub 的原生 Windows Runner 构建，并在真机验收后追加到同一版本，不会在 Mac 上伪造 Windows 产物。
+请从 [GitHub Releases](https://github.com/Yifo98/XunQi/releases/tag/v0.5.0) 下载。`v0.5.0` 当前只提供已经验证的 macOS 包和对应 SHA-256；Windows 便携候选包已由 GitHub 原生 Windows Runner 构建并校验，在真机验收后再追加到同一版本，不会在 Mac 上伪造 Windows 产物。
 
 macOS 包包含源码、运行文件和 `.command` 启动器。面向普通用户的 Windows 候选包调整为：
 
@@ -46,7 +46,7 @@ XunQi-版本-Windows-x64-portable-unsigned/
 
 普通用户 BAT 使用纯 ASCII 和 Windows CRLF，只启动包内已编译的 `runtime/xunqi.exe`，不联网安装依赖，也不要求 Node.js、pnpm、Rust 或 MSVC。`Open-XunQi-Logs.bat` 只打开本机启动日志目录；讯栖顶部的“导出日志”（“关于”页也有同一入口）可导出不含 Cookie、聊天记录、正文、分享链接、密码或令牌的诊断 TXT。开发者仍可单独生成“源码 + BAT”包，但它不再作为普通用户下载项。**BAT 不能绕过 Smart App Control**，Windows 仍可能检查 BAT 和未签名的运行文件。详见 [Smart App Control 评估](docs/SMART-APP-CONTROL.md)。
 
-计划中的 Windows 便携包没有商业代码签名。签名不是讯栖的功能依赖，在系统没有拦截时不影响功能使用；它主要用于让 Windows 验证发布者身份和文件完整性。“未签名”不等于恶意软件，也不会让讯栖获得额外权限。Windows 运行文件由公开源码在 GitHub 原生 Windows Runner 构建，不读取微信聊天记录、通讯录、本地数据库或密码，不提供云端账号、远程数据库或遥测上报。若遇拦截，请按 [Windows 拦截处理步骤](docs/SMART-APP-CONTROL.md#用户遇到拦截时) 先核对来源、校验值和提示类型；讯栖不会自动关闭系统安全功能。
+当前 Windows 便携候选包没有商业代码签名。签名不是讯栖的功能依赖，在系统没有拦截时不影响功能使用；它主要用于让 Windows 验证发布者身份和文件完整性。“未签名”不等于恶意软件，也不会让讯栖获得额外权限。Windows 运行文件由公开源码在 GitHub 原生 Windows Runner 构建，不读取微信聊天记录、通讯录、本地数据库或密码，不提供云端账号、远程数据库或遥测上报。若遇拦截，请按 [Windows 拦截处理步骤](docs/SMART-APP-CONTROL.md#用户遇到拦截时) 先核对来源、校验值和提示类型；讯栖不会自动关闭系统安全功能。
 
 ## 使用方法
 
@@ -68,7 +68,7 @@ Windows 已补上原生微信前台识别，支持 `WeChat.exe`、`Weixin.exe` �
 - 单篇或批量导出保留原文结构的 PDF。
 - 导出 Markdown 与本地图片文件夹。
 - 识别页面公开提供的 HTTPS 视频文件并手动下载。
-- macOS 上可由用户明确授权临时启用视频号嗅探助手；Windows 适配已进入试验阶段，尚须原生 Runner 和真机验收。
+- macOS 上可由用户明确授权临时启用视频号嗅探助手；Windows 试验适配已通过原生 Runner，尚须真机验收。
 - 视频号支持“原始画质”与“节省空间（微信默认）”两种真实下载策略；连续授权期间保持同一策略。
 - 多条视频可进入单任务校验队列，完成一条后自动接续下一条；当前不同时运行多个授权嗅探任务。
 - 显示下载进度、速度、保存目录和已知媒体信息。
@@ -83,7 +83,7 @@ Windows 已补上原生微信前台识别，支持 `WeChat.exe`、`Weixin.exe` �
 | 直接粘贴链接收取任务 | 支持 | 支持 |
 | 公众号 PDF / Markdown 导出 | 支持 | 支持；PDF 依赖 Microsoft Edge |
 | 公开视频直链下载 | 支持 | 支持 |
-| 授权嗅探下载 | 支持 Apple Silicon | 试验支持；待原生 Runner 和真机验收 |
+| 授权嗅探下载 | 支持 Apple Silicon | 试验支持；原生 Runner 已通过，待真机验收 |
 | 代码签名 / 公证 | 未公证 | 便携候选包含未商业签名的 `xunqi.exe`；BAT 不会绕过 Windows 安全检查 |
 
 微信公众号和视频号没有向第三方提供“输入名称即可持续连接并读取全部更新”的公开接口。讯栖只处理用户主动复制或粘贴的分享链接，不读取聊天记录、微信本地数据库或密码。

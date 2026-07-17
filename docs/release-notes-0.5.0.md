@@ -38,6 +38,6 @@
 ## 平台说明
 
 - macOS Apple Silicon：本次正式发布并完成本地构建、启动、导出与队列回归验证。
-- Windows x64：便携候选包由原生 Windows Runner 编译，包含 BAT 启动器和未商业签名的运行文件；授权嗅探已进入试验适配，使用当前用户证书库且不使用指纹授权。根据系统或企业策略，首次可能出现证书信任确认。完成 Runner 与真机验收后再追加公开 Release。
+- Windows x64：便携候选包已通过原生 Windows Runner 测试、编译、BAT 与 ZIP 白名单校验，包含未商业签名的运行文件；授权嗅探使用当前用户证书库，不使用指纹或 Windows Hello 授权。根据系统或企业策略，首次可能出现证书信任确认。完成 Windows 真机验收后再追加公开 Release。
 
 完整说明请查看仓库 [README](../README.md)、[发布记录](RELEASES.md)、[隐私说明](PRIVACY.md) 与 [安全说明](SECURITY.md)。
