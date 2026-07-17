@@ -3,6 +3,6 @@
     "beforeBuildCommand": "pnpm build"
   },
   "bundle": {
-    "externalBin": []
+    "externalBin": ["bin/xunqi-authorized-sniffer"]
   }
 }

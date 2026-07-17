@@ -48,6 +48,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare pinned Windows authorized-detection helper
+        shell: pwsh
+        run: ./scripts/build-authorized-sniffer-helper-windows.ps1
+
       - name: Check frontend and launchers
         run: pnpm lint && pnpm typecheck && pnpm test:run && pnpm test:header-layout && pnpm test:windows-launcher && pnpm test:windows-runtime-launcher
 

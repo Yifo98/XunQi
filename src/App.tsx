@@ -50,7 +50,8 @@ const defaultBackend = isTauriRuntime() ? tauriBackend : createPreviewBackend();
 
 function AppContent({ backend = defaultBackend, platform = detectPlatform() }: AppProps) {
   const { language, setLanguage, text } = useI18n();
-  const authorizedSniffSupported = platform === "macos";
+  const authorizedSniffSupported = platform === "macos" || platform === "windows";
+  const authorizedSniffExperimental = platform === "windows";
   const [tasks, setTasks] = useState<CaptureTaskDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -899,6 +900,7 @@ function AppContent({ backend = defaultBackend, platform = detectPlatform() }: A
           onRecoverSniff={() => void handleRecoverSniff()}
           sniffSession={sniffSession}
           authorizedSniffSupported={authorizedSniffSupported}
+          authorizedSniffExperimental={authorizedSniffExperimental}
           videoQualityMode={videoQualityMode}
           onVideoQualityModeChange={setVideoQualityMode}
           onOpenOriginal={(url) => void handleOpenExternal(url, "微信原文")}
@@ -956,17 +958,24 @@ function AppContent({ backend = defaultBackend, platform = detectPlatform() }: A
             <div className="vpn-required-notice">
               {text("启用前请先关闭 VPN 或系统代理；关闭后再点下方按钮。", "Turn off your VPN or system proxy before enabling this feature.")}
             </div>
-            <p>{text(
-              "这次操作会临时把系统 HTTP/HTTPS 流量接入本地下载助手，并安装一张仅供本次连续下载使用的证书。系统可能要求一次指纹或管理员认证。",
-              "This temporarily routes system HTTP/HTTPS traffic through a local download assistant and installs a session certificate. macOS may request Touch ID or administrator approval once.",
-            )}</p>
+            <p>{authorizedSniffExperimental
+              ? text(
+                "这次操作会临时把系统 HTTP/HTTPS 流量接入本地下载助手，并把一张会话证书写入当前用户证书库。Windows 不使用指纹授权；根据系统或企业策略，首次可能出现证书信任确认。",
+                "This temporarily routes system HTTP/HTTPS traffic through a local assistant and adds a session certificate to the current-user certificate store. Windows does not use fingerprint authorization; system or enterprise policy may show a certificate-trust confirmation on first use.",
+              )
+              : text(
+                "这次操作会临时把系统 HTTP/HTTPS 流量接入本地下载助手，并安装一张仅供本次连续下载使用的证书。macOS 可能要求一次指纹或管理员认证。",
+                "This temporarily routes system HTTP/HTTPS traffic through a local download assistant and installs a session certificate. macOS may request Touch ID or administrator approval once.",
+              )}</p>
             <ul>
               <li>{text("只在你确认后启动；公开直链下载仍然优先。", "It starts only after your confirmation; public direct downloads remain the first choice.")}</li>
               <li>{text("启用期间，系统 HTTP/HTTPS 请求会先经过本地助手；它只对预设的微信/腾讯页面进行解析，其他流量只转发、不保存。", "While enabled, HTTP/HTTPS requests pass through the local assistant. It parses only predefined WeChat/Tencent pages and does not save other traffic.")}</li>
               <li>{text("匹配页面的 Cookie 与登录态仅在本机内存中临时经过助手，不显示、不写日志、不落盘、不上传。", "Matching-page cookies and session state pass through local memory only. They are not displayed, logged, saved, or uploaded.")}</li>
               <li>{text("因为会临时信任本地证书，这不是零风险功能；启用期间请暂停网银、密码修改等敏感操作。", "This is not risk-free because a local certificate is temporarily trusted. Avoid banking, password changes, and other sensitive activity while it is enabled.")}</li>
               <li>{text("只应用于你有权保存的内容；讯栖不会绕过账号权限或平台访问控制。", "Use it only for content you are allowed to save. XunQi does not bypass account permissions or platform access controls.")}</li>
-              <li>{text("视频下载完成后会保留授权，后续视频不再重复认证。", "Authorization remains available after a download so later videos do not request approval again.")}</li>
+              <li>{authorizedSniffExperimental
+                ? text("视频下载完成后会保留本次会话，后续视频无需再次确认。", "The session remains active after a download, so later videos need no additional confirmation.")
+                : text("视频下载完成后会保留授权，后续视频不再重复认证。", "Authorization remains available after a download so later videos do not request approval again.")}</li>
               <li>{text("你点击“结束并恢复网络”或退出讯栖时，才会恢复原代理并移除证书。", "The original proxy and certificate trust are restored when you choose End and Restore Network or quit XunQi.")}</li>
               <li>{text("VPN 与系统代理必须在启用前关闭；讯栖检测到它们时会直接阻止启动。", "VPN and system proxies must be off before starting; XunQi blocks activation when either is detected.")}</li>
               <li>{text("助手来源", "Assistant source")}：{sniffPlan.helperSource}；{text("微信改版后仍可能无法识别。", "future WeChat changes may still prevent detection.")}</li>
@@ -1107,8 +1116,8 @@ function sniffConflictMessage(
   englishFallback: string,
 ) {
   if (language === "zh") return conflict?.message ?? chineseFallback;
-  if (conflict?.code === "windows_sniffer_unavailable") {
-    return "Authorized detection is not available in the Windows test build. This is not a missing WebView2 component; reinstalling or extracting again will not help. Article export and public direct-video downloads still work.";
+  if (conflict?.code === "platform_sniffer_unavailable") {
+    return "Authorized detection is not available on this operating system. Article export and public direct-video downloads still work.";
   }
   return conflict?.message && !containsChinese(conflict.message)
     ? conflict.message

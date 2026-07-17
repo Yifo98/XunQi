@@ -500,7 +500,7 @@ describe("讯栖多任务工作台", () => {
     expect(screen.queryByText("原始画质")).not.toBeInTheDocument();
   });
 
-  it("Windows 英文界面会准确说明授权嗅探的平台边界", async () => {
+  it("Windows 英文界面会提供授权嗅探入口", async () => {
     const user = userEvent.setup();
     const backend = createPreviewBackend();
     const template = structuredClone((await backend.listTasks()).find(({ task }) => task.kind === "video")!);
@@ -511,27 +511,18 @@ describe("讯栖多任务工作台", () => {
     };
     backend.listTasks = async () => [video];
     backend.getTaskDetail = async () => video;
-    backend.prepareVideoSniff = async () => ({
-      planId: "",
-      taskId: 89,
-      expiresAt: "2099-01-01T00:00:00Z",
-      canStart: false,
-      changes: [],
-      reusesAuthorization: false,
-      helperSource: "",
-      conflict: {
-        code: "windows_sniffer_unavailable",
-        message: "Windows 测试版暂未提供授权嗅探下载；这不是 WebView2 缺失。",
-      },
-    });
-
     render(<App backend={backend} platform="windows" />);
     const [header] = await screen.findAllByRole("banner");
     await user.click(within(header).getByRole("button", { name: "切换为英文" }));
 
-    expect(await screen.findByText("Authorized Detection Is Not Available on Windows Yet")).toBeInTheDocument();
-    expect(screen.getByText(/not a missing WebView2 component/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Authorize Detection" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Windows Authorized Detection (Experimental)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Authorize Detection" })).toBeInTheDocument();
+    expect(screen.queryByText("Authorized Detection Is Not Available on This System")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Authorize Detection" }));
+    const dialog = await screen.findByRole("dialog", { name: "Enable Authorized Detection" });
+    expect(within(dialog).getByText(/does not use fingerprint authorization/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/certificate-trust confirmation/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Touch ID/)).not.toBeInTheDocument();
   });
 
   it("首次授权后的下一条视频直接复用授权和保存目录", async () => {

@@ -33,6 +33,7 @@ type TaskDetailProps = {
   onRecoverSniff: () => void;
   sniffSession: SniffSessionSnapshot | null;
   authorizedSniffSupported: boolean;
+  authorizedSniffExperimental: boolean;
   videoQualityMode: SniffQualityMode;
   onVideoQualityModeChange: (mode: SniffQualityMode) => void;
   onOpenOriginal: (url: string) => void;
@@ -69,6 +70,7 @@ export function TaskDetail({
   onRecoverSniff,
   sniffSession,
   authorizedSniffSupported,
+  authorizedSniffExperimental,
   videoQualityMode,
   onVideoQualityModeChange,
   onOpenOriginal,
@@ -120,6 +122,7 @@ export function TaskDetail({
             sniffSession={taskSniffSession}
             authorizationReusable={sniffSession?.authorizationReusable === true}
             authorizedSniffSupported={authorizedSniffSupported}
+            authorizedSniffExperimental={authorizedSniffExperimental}
             qualityMode={videoQualityMode}
             onStopSniff={onStopSniff}
             onRecoverSniff={onRecoverSniff}
@@ -368,6 +371,7 @@ function VideoDetail({
   sniffSession,
   authorizationReusable,
   authorizedSniffSupported,
+  authorizedSniffExperimental,
   qualityMode,
   onStopSniff,
   onRecoverSniff,
@@ -379,6 +383,7 @@ function VideoDetail({
   sniffSession: SniffSessionSnapshot | null;
   authorizationReusable: boolean;
   authorizedSniffSupported: boolean;
+  authorizedSniffExperimental: boolean;
   qualityMode: SniffQualityMode;
   onStopSniff: (sessionId: string) => void;
   onRecoverSniff: () => void;
@@ -438,11 +443,17 @@ function VideoDetail({
           <LinkSimpleIcon size={24} weight="duotone" />
           <div>
             <strong>{authorizationReusable
-              ? text("连续授权可用", "Continuous Authorization Available")
-              : text("可改用授权嗅探助手", "Authorized Detection Available")}</strong>
+              ? authorizedSniffExperimental
+                ? text("Windows 连续授权（试验）", "Windows Continuous Authorization (Experimental)")
+                : text("连续授权可用", "Continuous Authorization Available")
+              : authorizedSniffExperimental
+                ? text("Windows 授权嗅探（试验）", "Windows Authorized Detection (Experimental)")
+                : text("可改用授权嗅探助手", "Authorized Detection Available")}</strong>
             <p>{authorizationReusable
-              ? text("下一条不再要求指纹；处理完成前请保持 VPN 关闭。", "The next item will not request Touch ID again. Keep your VPN off until processing is complete.")
-              : text("请先关闭 VPN。首次确认后只在本机临时启用代理和会话证书。", "Turn off your VPN first. After confirmation, a local proxy and session certificate are enabled temporarily on this Mac.")}</p>
+              ? authorizedSniffExperimental
+                ? text("下一条无需再次确认；Windows 不使用指纹授权，处理完成前请保持 VPN 关闭。", "The next item needs no additional confirmation. Windows does not use fingerprint authorization; keep your VPN off until processing is complete.")
+                : text("下一条不再要求指纹；处理完成前请保持 VPN 关闭。", "The next item will not request Touch ID again. Keep your VPN off until processing is complete.")
+              : text("请先关闭 VPN。首次确认后只在本机临时启用代理和会话证书。", "Turn off your VPN first. After confirmation, a local proxy and session certificate are enabled temporarily on this device.")}</p>
           </div>
         </div>
       )}
@@ -450,10 +461,10 @@ function VideoDetail({
         <div className="authorized-sniff-intro authorized-sniff-unavailable" role="note">
           <WarningCircleIcon size={24} weight="duotone" />
           <div>
-            <strong>{text("Windows 测试版暂不支持授权嗅探", "Authorized Detection Is Not Available on Windows Yet")}</strong>
+            <strong>{text("当前系统暂不支持授权嗅探", "Authorized Detection Is Not Available on This System")}</strong>
             <p>{text(
-              "这不是 WebView2 或安装包缺失。公众号导出和公开视频直链下载仍可使用；授权嗅探需等 Windows 网络恢复适配完成后再开放。",
-              "This is not a missing WebView2 component or an incomplete package. Article export and public direct-video downloads still work; authorized detection will be enabled only after Windows network recovery is safely supported.",
+              "公众号导出和公开视频直链下载仍可使用。",
+              "Article export and public direct-video downloads still work.",
             )}</p>
           </div>
         </div>

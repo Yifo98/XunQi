@@ -20,9 +20,23 @@ use super::{
     SniffProgress, SniffQualityMode, SniffRecoveryResult, SnifferRuntime,
 };
 
-const HELPER_SOURCE: &str = "ltaoo/wx_channels_download v260706";
-const HELPER_SHA256: &str = "ee777e9f07a4784163d16c6dc0288bb9d8c1ea9db3ae4a7275f098d1a1a56aca";
-const PACKAGED_HELPER_SHA256: &str =
+#[cfg(target_os = "windows")]
+#[path = "native_windows.rs"]
+mod windows;
+
+#[cfg(target_os = "windows")]
+use windows::{
+    apply_network_state, certificate_fingerprint, default_user_keychain,
+    generate_session_certificate, install_certificate, read_network, remove_certificate,
+    set_private_directory, set_private_file, snapshot_network, terminate_recovered_helper,
+    validate_platform_network_conflicts,
+};
+
+#[cfg(target_os = "macos")]
+const MACOS_HELPER_SHA256: &str =
+    "ee777e9f07a4784163d16c6dc0288bb9d8c1ea9db3ae4a7275f098d1a1a56aca";
+#[cfg(target_os = "macos")]
+const MACOS_PACKAGED_HELPER_SHA256: &str =
     "2ef57ef05513466fac48be21d8c0a1bf8de9f26f86edf337fd6772f9c2fcd631";
 const SESSION_CAPTURE_TIMEOUT: Duration = Duration::from_secs(120);
 const OUTPUT_FINALIZATION_TIMEOUT: Duration = Duration::from_secs(90);
@@ -131,6 +145,16 @@ struct NetworkSnapshot {
     web: ProxyState,
     secure_web: ProxyState,
     auto_proxy: AutoProxyState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    windows: Option<WindowsProxySnapshot>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct WindowsProxySnapshot {
+    proxy_enable: Option<i64>,
+    proxy_server: Option<String>,
+    auto_config_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -146,6 +170,70 @@ struct ProxyState {
 struct AutoProxyState {
     enabled: bool,
     url: String,
+}
+
+#[cfg(target_os = "macos")]
+fn helper_source() -> &'static str {
+    "ltaoo/wx_channels_download v260706"
+}
+
+#[cfg(target_os = "windows")]
+fn helper_source() -> &'static str {
+    windows::helper_source()
+}
+
+#[cfg(target_os = "macos")]
+fn helper_candidates(executable_dir: &Path) -> Vec<PathBuf> {
+    vec![
+        executable_dir.join("xunqi-authorized-sniffer"),
+        executable_dir.join("../Resources/xunqi-authorized-sniffer"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
+            "bin/xunqi-authorized-sniffer-{}-apple-darwin",
+            std::env::consts::ARCH
+        )),
+    ]
+}
+
+#[cfg(target_os = "windows")]
+fn helper_candidates(executable_dir: &Path) -> Vec<PathBuf> {
+    windows::helper_candidates(executable_dir)
+}
+
+#[cfg(target_os = "macos")]
+fn helper_hash_matches(actual: &str) -> bool {
+    actual == MACOS_HELPER_SHA256 || actual == MACOS_PACKAGED_HELPER_SHA256
+}
+
+#[cfg(target_os = "windows")]
+fn helper_hash_matches(actual: &str) -> bool {
+    windows::helper_hash_matches(actual)
+}
+
+#[cfg(target_os = "macos")]
+fn validate_platform_prerequisites() -> Result<(), SniffConflict> {
+    for required in [
+        "/usr/bin/openssl",
+        "/usr/bin/security",
+        "/usr/sbin/networksetup",
+    ] {
+        if !Path::new(required).is_file() {
+            return Err(SniffConflict {
+                code: "system_tool_missing".into(),
+                message: format!("系统缺少授权助手需要的组件：{required}"),
+            });
+        }
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn validate_platform_network_conflicts() -> Result<(), SniffConflict> {
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn validate_platform_prerequisites() -> Result<(), SniffConflict> {
+    windows::validate_platform_prerequisites()
 }
 
 impl NativeSnifferRuntime {
@@ -171,20 +259,13 @@ impl NativeSnifferRuntime {
             code: "helper_missing".into(),
             message: "无法确定讯栖程序目录".into(),
         })?;
-        [
-            executable_dir.join("xunqi-authorized-sniffer"),
-            executable_dir.join("../Resources/xunqi-authorized-sniffer"),
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
-                "bin/xunqi-authorized-sniffer-{}-apple-darwin",
-                std::env::consts::ARCH
-            )),
-        ]
-        .into_iter()
-        .find(|candidate| candidate.is_file())
-        .ok_or_else(|| SniffConflict {
-            code: "helper_missing".into(),
-            message: "授权嗅探组件缺失，请重新解压完整的讯栖安装包".into(),
-        })
+        helper_candidates(executable_dir)
+            .into_iter()
+            .find(|candidate| candidate.is_file())
+            .ok_or_else(|| SniffConflict {
+                code: "helper_missing".into(),
+                message: "授权嗅探组件缺失，请重新解压完整的讯栖安装包".into(),
+            })
     }
 
     fn verify_helper(&self, path: &Path) -> Result<(), SniffConflict> {
@@ -205,7 +286,7 @@ impl NativeSnifferRuntime {
             digest.update(&buffer[..read]);
         }
         let actual = format!("{:x}", digest.finalize());
-        if actual != HELPER_SHA256 && actual != PACKAGED_HELPER_SHA256 {
+        if !helper_hash_matches(&actual) {
             return Err(SniffConflict {
                 code: "helper_checksum_mismatch".into(),
                 message: "授权嗅探组件校验值不符，为保护你的网络设置已拒绝启动".into(),
@@ -250,8 +331,7 @@ impl NativeSnifferRuntime {
                 write_journal(&self.journal_path(), &session.journal)?;
                 return Ok(RuntimeSnapshot {
                     phase: SniffPhase::AwaitingPlayback,
-                    message: "已复用授权助手，不会再要求指纹，也不会重新加载当前视频号窗口。"
-                        .into(),
+                    message: "已复用授权助手，无需再次确认，也不会重新加载当前视频号窗口。".into(),
                     helper_page_url: Some(format!(
                         "http://127.0.0.1:{}/download",
                         session.api_port
@@ -268,6 +348,8 @@ impl NativeSnifferRuntime {
             .helper_path()
             .map_err(|conflict| AppError::Validation(conflict.message))?;
         self.verify_helper(&helper)
+            .map_err(|conflict| AppError::Validation(conflict.message))?;
+        validate_platform_prerequisites()
             .map_err(|conflict| AppError::Validation(conflict.message))?;
         let network = snapshot_network().map_err(AppError::Content)?;
         validate_network(&network).map_err(|conflict| AppError::Validation(conflict.message))?;
@@ -333,6 +415,9 @@ impl NativeSnifferRuntime {
                     .env("XDG_CONFIG_HOME", session_dir.join("config"))
                     .env("XDG_CACHE_HOME", session_dir.join("cache"))
                     .env("XDG_DATA_HOME", session_dir.join("data"))
+                    .env("APPDATA", session_dir.join("appdata"))
+                    .env("LOCALAPPDATA", session_dir.join("local-appdata"))
+                    .env("USERPROFILE", &session_dir)
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
@@ -533,7 +618,7 @@ impl NativeSnifferRuntime {
                     Ok(output) => RuntimeSnapshot {
                         phase: SniffPhase::Completed,
                         message: format!(
-                            "视频已保存到 {}。连续下载仍已启用，下一条无需再指纹认证。",
+                            "视频已保存到 {}。连续下载仍已启用，下一条无需再次确认。",
                             output.destination
                         ),
                         helper_page_url: Some(format!(
@@ -703,9 +788,9 @@ impl NativeSnifferRuntime {
     }
 
     fn cleanup(&self, session: &mut NativeSession) -> Result<(), AppError> {
-        let _ = session.child.kill();
-        let _ = session.child.wait();
-        let result = restore_from_journal(&session.journal);
+        let termination = terminate_child(&mut session.child);
+        let restoration = restore_from_journal(&session.journal);
+        let result = combine_recovery_steps(termination, restoration);
         if result.is_ok() {
             let _ = fs::remove_file(self.journal_path());
             let _ = fs::remove_dir_all(&session.journal.session_dir);
@@ -715,9 +800,9 @@ impl NativeSnifferRuntime {
 }
 
 fn platform_sniffer_unavailability(target_os: &str) -> Option<SniffConflict> {
-    (target_os == "windows").then(|| SniffConflict {
-        code: "windows_sniffer_unavailable".into(),
-        message: "Windows 测试版暂未提供授权嗅探下载；这不是 WebView2 缺失，重新解压或安装 WebView2 不会解决。公众号导出和公开视频直链下载仍可正常使用。".into(),
+    (!matches!(target_os, "macos" | "windows")).then(|| SniffConflict {
+        code: "platform_sniffer_unavailable".into(),
+        message: "当前系统暂未提供授权嗅探下载。公众号导出和公开视频直链下载仍可正常使用。".into(),
     })
 }
 
@@ -731,6 +816,7 @@ impl SnifferRuntime for NativeSnifferRuntime {
                         message: "连续下载助手已退出，请先恢复网络设置".into(),
                     });
                 }
+                validate_platform_network_conflicts()?;
                 let current =
                     read_network(&session.journal.network.service).map_err(|message| {
                         SniffConflict {
@@ -747,7 +833,7 @@ impl SnifferRuntime for NativeSnifferRuntime {
                     });
                 }
                 return Ok(RuntimePreflight {
-                    helper_source: HELPER_SOURCE.into(),
+                    helper_source: helper_source().into(),
                     authorization_reusable: true,
                 });
             }
@@ -763,25 +849,14 @@ impl SnifferRuntime for NativeSnifferRuntime {
         }
         let helper = self.helper_path()?;
         self.verify_helper(&helper)?;
+        validate_platform_prerequisites()?;
         let network = snapshot_network().map_err(|message| SniffConflict {
             code: "network_preflight_failed".into(),
             message,
         })?;
         validate_network(&network)?;
-        for required in [
-            "/usr/bin/openssl",
-            "/usr/bin/security",
-            "/usr/sbin/networksetup",
-        ] {
-            if !Path::new(required).is_file() {
-                return Err(SniffConflict {
-                    code: "system_tool_missing".into(),
-                    message: format!("系统缺少授权助手需要的组件：{required}"),
-                });
-            }
-        }
         Ok(RuntimePreflight {
-            helper_source: HELPER_SOURCE.into(),
+            helper_source: helper_source().into(),
             authorization_reusable: false,
         })
     }
@@ -817,8 +892,9 @@ impl SnifferRuntime for NativeSnifferRuntime {
             });
         }
         let journal: RecoveryJournal = serde_json::from_slice(&fs::read(&path)?)?;
-        terminate_recovered_helper(&journal);
-        restore_from_journal(&journal)?;
+        let termination = terminate_recovered_helper(&journal);
+        let restoration = restore_from_journal(&journal);
+        combine_recovery_steps(termination, restoration)?;
         let _ = fs::remove_file(path);
         let _ = fs::remove_dir_all(journal.session_dir);
         Ok(SniffRecoveryResult {
@@ -843,14 +919,42 @@ fn rollback_startup(
     journal: &RecoveryJournal,
     child: Option<&mut Child>,
 ) -> Result<(), AppError> {
-    if let Some(child) = child {
-        let _ = child.kill();
-        let _ = child.wait();
+    let termination = child.map_or(Ok(()), terminate_child);
+    let restoration = restore_from_journal(journal);
+    let result = combine_recovery_steps(termination, restoration);
+    if result.is_ok() {
+        let _ = fs::remove_file(journal_path);
+        let _ = fs::remove_dir_all(&journal.session_dir);
     }
-    restore_from_journal(journal)?;
-    let _ = fs::remove_file(journal_path);
-    let _ = fs::remove_dir_all(&journal.session_dir);
+    result
+}
+
+fn terminate_child(child: &mut Child) -> Result<(), AppError> {
+    if child.try_wait()?.is_some() {
+        return Ok(());
+    }
+    if let Err(error) = child.kill() {
+        if child.try_wait()?.is_none() {
+            return Err(AppError::Content(format!("授权嗅探助手没有停止：{error}")));
+        }
+        return Ok(());
+    }
+    child.wait()?;
     Ok(())
+}
+
+fn combine_recovery_steps(
+    termination: Result<(), AppError>,
+    restoration: Result<(), AppError>,
+) -> Result<(), AppError> {
+    match (termination, restoration) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(termination), Ok(())) => Err(termination),
+        (Ok(()), Err(restoration)) => Err(restoration),
+        (Err(termination), Err(restoration)) => Err(AppError::Content(format!(
+            "授权助手没有停止：{termination}；同时网络和证书恢复失败：{restoration}"
+        ))),
+    }
 }
 
 fn combine_startup_and_recovery_error(error: AppError, recovery: Result<(), AppError>) -> AppError {
@@ -874,7 +978,7 @@ fn helper_config(
     quality_mode: SniffQualityMode,
 ) -> String {
     format!(
-        "debug:\n  error: false\n  echolog: false\npagespy:\n  enabled: false\ninject:\n  globalScript: {}\ndownload:\n  defaultHighest: {}\n  dir: {}\n  playDoneAudio: false\n  frontend: false\napi:\n  protocol: http\n  hostname: 127.0.0.1\n  port: {api_port}\nupdate:\n  proxy: \"\"\n  mirror: \"\"\nproxy:\n  system: false\n  hostname: 127.0.0.1\n  port: {proxy_port}\n  tun: false\n  skipInstallRootCert: true\n  upstreamProxy: {}\ncert:\n  file: {}\n  key: {}\n  name: {}\nmp:\n  enabled: false\ncloudflare:\n  accountId: \"\"\n  apiToken: \"\"\n",
+        "debug:\n  error: false\n  echolog: false\npagespy:\n  enabled: false\ninject:\n  globalScript: {}\ndownload:\n  defaultHighest: {}\n  dir: {}\n  playDoneAudio: false\n  frontend: false\n  remoteServer:\n    enabled: false\napi:\n  protocol: http\n  hostname: 127.0.0.1\n  port: {api_port}\nupdate:\n  proxy: \"\"\n  mirror: \"\"\nproxy:\n  system: false\n  hostname: 127.0.0.1\n  port: {proxy_port}\n  tcpRelay:\n    enabled: false\n  tun: false\n  skipInstallRootCert: true\n  upstreamProxy: {}\ncert:\n  file: {}\n  key: {}\n  name: {}\nmp:\n  enabled: false\ncloudflare:\n  accountId: \"\"\n  apiToken: \"\"\n  sphCookie: \"\"\n",
         yaml_string(guide_script),
         matches!(quality_mode, SniffQualityMode::Original),
         yaml_string(destination),
@@ -903,11 +1007,20 @@ fn discard_upstream_log(session_dir: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
-#[cfg(not(unix))]
+#[cfg(target_os = "windows")]
+fn discard_upstream_log(session_dir: &Path) -> Result<(), AppError> {
+    let log = session_dir.join("app.log");
+    fs::write(&log, [])?;
+    set_private_file(&log)?;
+    Ok(())
+}
+
+#[cfg(all(not(unix), not(target_os = "windows")))]
 fn discard_upstream_log(_session_dir: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 fn generate_session_certificate(name: &str, cert: &Path, key: &Path) -> Result<(), AppError> {
     let status = Command::new("/usr/bin/openssl")
         .args([
@@ -930,6 +1043,7 @@ fn generate_session_certificate(name: &str, cert: &Path, key: &Path) -> Result<(
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 fn certificate_fingerprint(cert: &Path) -> Result<String, AppError> {
     let output = Command::new("/usr/bin/openssl")
         .args(["x509", "-in"])
@@ -946,6 +1060,7 @@ fn certificate_fingerprint(cert: &Path) -> Result<String, AppError> {
         .ok_or_else(|| AppError::Content("临时证书指纹格式无效".into()))
 }
 
+#[cfg(target_os = "macos")]
 fn default_user_keychain() -> Result<PathBuf, AppError> {
     let output = Command::new("/usr/bin/security")
         .args(["default-keychain", "-d", "user"])
@@ -963,6 +1078,7 @@ fn default_user_keychain() -> Result<PathBuf, AppError> {
     Ok(PathBuf::from(value))
 }
 
+#[cfg(target_os = "macos")]
 fn install_certificate(keychain: &Path, cert: &Path) -> Result<(), AppError> {
     let output = Command::new("/usr/bin/security")
         .args(["add-trusted-cert", "-r", "trustRoot", "-k"])
@@ -978,6 +1094,7 @@ fn install_certificate(keychain: &Path, cert: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 fn remove_certificate(journal: &RecoveryJournal) -> Result<(), AppError> {
     let found = Command::new("/usr/bin/security")
         .args(["find-certificate", "-Z", "-c", &journal.certificate_name])
@@ -1008,17 +1125,20 @@ fn remove_certificate(journal: &RecoveryJournal) -> Result<(), AppError> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 fn snapshot_network() -> Result<NetworkSnapshot, String> {
     let service = active_network_service()?;
     read_network(&service)
 }
 
+#[cfg(target_os = "macos")]
 fn read_network(service: &str) -> Result<NetworkSnapshot, String> {
     Ok(NetworkSnapshot {
         web: read_proxy(service, false)?,
         secure_web: read_proxy(service, true)?,
         auto_proxy: read_auto_proxy(service)?,
         service: service.to_string(),
+        windows: None,
     })
 }
 
@@ -1062,6 +1182,7 @@ fn compatible_upstream_proxy(snapshot: &NetworkSnapshot) -> Option<String> {
     Some(format!("http://{}:{}", proxy.server, proxy.port))
 }
 
+#[cfg(target_os = "macos")]
 fn active_network_service() -> Result<String, String> {
     let nwi = Command::new("/usr/sbin/scutil")
         .arg("--nwi")
@@ -1091,6 +1212,7 @@ fn active_network_service() -> Result<String, String> {
     Err("没有找到活动接口对应的网络服务".into())
 }
 
+#[cfg(target_os = "macos")]
 fn read_proxy(service: &str, secure: bool) -> Result<ProxyState, String> {
     let command = if secure {
         "-getsecurewebproxy"
@@ -1125,6 +1247,7 @@ fn read_proxy(service: &str, secure: bool) -> Result<ProxyState, String> {
     Ok(state)
 }
 
+#[cfg(target_os = "macos")]
 fn read_auto_proxy(service: &str) -> Result<AutoProxyState, String> {
     let output = Command::new("/usr/sbin/networksetup")
         .args(["-getautoproxyurl", service])
@@ -1168,16 +1291,15 @@ fn applied_network_state(journal: &RecoveryJournal) -> NetworkSnapshot {
             enabled: true,
             url: journal.applied_pac_url.clone(),
         };
+        if let Some(windows) = applied.windows.as_mut() {
+            windows.auto_config_url = Some(journal.applied_pac_url.clone());
+        }
         applied
     }
 }
 
 fn session_network_state(original: &NetworkSnapshot, proxy_port: u16) -> NetworkSnapshot {
-    let helper = ProxyState {
-        enabled: true,
-        server: "127.0.0.1".into(),
-        port: proxy_port,
-    };
+    let helper = session_proxy_state(proxy_port);
     NetworkSnapshot {
         service: original.service.clone(),
         web: helper.clone(),
@@ -1186,6 +1308,39 @@ fn session_network_state(original: &NetworkSnapshot, proxy_port: u16) -> Network
             enabled: false,
             url: original.auto_proxy.url.clone(),
         },
+        windows: session_windows_proxy_snapshot(proxy_port),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn session_windows_proxy_snapshot(proxy_port: u16) -> Option<WindowsProxySnapshot> {
+    Some(WindowsProxySnapshot {
+        proxy_enable: Some(1),
+        proxy_server: Some(format!("127.0.0.1:{proxy_port}")),
+        auto_config_url: None,
+    })
+}
+
+#[cfg(not(target_os = "windows"))]
+fn session_windows_proxy_snapshot(_proxy_port: u16) -> Option<WindowsProxySnapshot> {
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn session_proxy_state(proxy_port: u16) -> ProxyState {
+    ProxyState {
+        enabled: true,
+        server: "127.0.0.1".into(),
+        port: proxy_port,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn session_proxy_state(proxy_port: u16) -> ProxyState {
+    ProxyState {
+        enabled: true,
+        server: format!("127.0.0.1:{proxy_port}"),
+        port: proxy_port,
     }
 }
 
@@ -1194,12 +1349,45 @@ fn network_state_is_owned(
     original: &NetworkSnapshot,
     applied: &NetworkSnapshot,
 ) -> bool {
-    current.service == original.service
-        && (current.web == original.web || current.web == applied.web)
-        && (current.secure_web == original.secure_web || current.secure_web == applied.secure_web)
-        && (current.auto_proxy == original.auto_proxy || current.auto_proxy == applied.auto_proxy)
+    if current.service != original.service {
+        return false;
+    }
+    match (
+        current.windows.as_ref(),
+        original.windows.as_ref(),
+        applied.windows.as_ref(),
+    ) {
+        (Some(current), Some(original), Some(applied)) => {
+            optional_value_is_owned(
+                &current.proxy_enable,
+                &original.proxy_enable,
+                &applied.proxy_enable,
+            ) && optional_value_is_owned(
+                &current.proxy_server,
+                &original.proxy_server,
+                &applied.proxy_server,
+            ) && optional_value_is_owned(
+                &current.auto_config_url,
+                &original.auto_config_url,
+                &applied.auto_config_url,
+            )
+        }
+        (None, None, None) => {
+            (current.web == original.web || current.web == applied.web)
+                && (current.secure_web == original.secure_web
+                    || current.secure_web == applied.secure_web)
+                && (current.auto_proxy == original.auto_proxy
+                    || current.auto_proxy == applied.auto_proxy)
+        }
+        _ => false,
+    }
 }
 
+fn optional_value_is_owned<T: PartialEq>(current: &T, original: &T, applied: &T) -> bool {
+    current == original || current == applied
+}
+
+#[cfg(target_os = "macos")]
 fn apply_network_state(state: &NetworkSnapshot) -> Result<(), AppError> {
     apply_auto_proxy(&state.service, &state.auto_proxy)?;
     apply_proxy(&state.service, false, &state.web)?;
@@ -1207,6 +1395,7 @@ fn apply_network_state(state: &NetworkSnapshot) -> Result<(), AppError> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 fn apply_proxy(service: &str, secure: bool, state: &ProxyState) -> Result<(), AppError> {
     let set_proxy = if secure {
         "-setsecurewebproxy"
@@ -1235,6 +1424,7 @@ fn apply_proxy(service: &str, secure: bool, state: &ProxyState) -> Result<(), Ap
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 fn apply_auto_proxy(service: &str, state: &AutoProxyState) -> Result<(), AppError> {
     if !state.url.is_empty() {
         let status = Command::new("/usr/sbin/networksetup")
@@ -1272,20 +1462,10 @@ fn set_private_file(path: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
-#[cfg(not(unix))]
-fn set_private_file(_path: &Path) -> Result<(), AppError> {
-    Ok(())
-}
-
 #[cfg(unix)]
 fn set_private_directory(path: &Path) -> Result<(), AppError> {
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn set_private_directory(_path: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
@@ -1790,23 +1970,24 @@ fn failed_restored_or_required(
     }
 }
 
-fn terminate_recovered_helper(journal: &RecoveryJournal) {
+#[cfg(target_os = "macos")]
+fn terminate_recovered_helper(journal: &RecoveryJournal) -> Result<(), AppError> {
     let Some(pid) = journal.helper_pid else {
-        return;
+        return Ok(());
     };
     let output = Command::new("/bin/ps")
         .args(["-p", &pid.to_string(), "-o", "command="])
-        .output();
-    let Ok(output) = output else {
-        return;
-    };
+        .output()?;
+    if !output.status.success() {
+        return Ok(());
+    }
     let command = String::from_utf8_lossy(&output.stdout);
     if !is_sniffer_process_command(&command, &journal.session_dir.join("config.yaml")) {
-        return;
+        return Ok(());
     }
-    #[cfg(unix)]
-    unsafe {
-        libc::kill(pid as i32, libc::SIGTERM);
+    let terminated = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+    if terminated != 0 {
+        return Err(AppError::Io(std::io::Error::last_os_error()));
     }
     thread::sleep(Duration::from_millis(250));
     if Command::new("/bin/ps")
@@ -1814,11 +1995,20 @@ fn terminate_recovered_helper(journal: &RecoveryJournal) {
         .status()
         .is_ok_and(|status| status.success())
     {
-        #[cfg(unix)]
-        unsafe {
-            libc::kill(pid as i32, libc::SIGKILL);
+        let killed = unsafe { libc::kill(pid as i32, libc::SIGKILL) };
+        if killed != 0 {
+            return Err(AppError::Io(std::io::Error::last_os_error()));
+        }
+        thread::sleep(Duration::from_millis(100));
+        if Command::new("/bin/ps")
+            .args(["-p", &pid.to_string()])
+            .status()
+            .is_ok_and(|status| status.success())
+        {
+            return Err(AppError::Content("授权嗅探助手进程仍在运行".into()));
         }
     }
+    Ok(())
 }
 
 fn is_sniffer_process_command(command: &str, expected_config: &Path) -> bool {
@@ -1838,12 +2028,12 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn reports_the_windows_sniffer_boundary_without_blaming_webview() {
-        let conflict = platform_sniffer_unavailability("windows").unwrap();
-        assert_eq!(conflict.code, "windows_sniffer_unavailable");
-        assert!(conflict.message.contains("这不是 WebView2 缺失"));
-        assert!(conflict.message.contains("公众号导出"));
+    fn enables_supported_desktop_sniffer_platforms() {
+        assert!(platform_sniffer_unavailability("windows").is_none());
         assert!(platform_sniffer_unavailability("macos").is_none());
+        let conflict = platform_sniffer_unavailability("linux").unwrap();
+        assert_eq!(conflict.code, "platform_sniffer_unavailable");
+        assert!(conflict.message.contains("公众号导出"));
     }
 
     #[test]
@@ -1921,9 +2111,14 @@ mod tests {
         assert!(config.contains("skipInstallRootCert: true"));
         assert!(config.contains("pagespy:\n  enabled: false"));
         assert!(config.contains("mp:\n  enabled: false"));
+        assert!(config.contains("remoteServer:\n    enabled: false"));
+        assert!(config.contains("tcpRelay:\n    enabled: false"));
+        assert!(config.contains("sphCookie: \"\""));
         assert!(config.contains("upstreamProxy: \"http://127.0.0.1:7890\""));
         assert!(config.contains("globalScript: \"/tmp/xunqi-guide.js\""));
-        assert!(!config.contains("Cookie"));
+        assert!(!config.lines().any(|line| {
+            line.trim_start().starts_with("sphCookie:") && line.trim() != "sphCookie: \"\""
+        }));
         assert!(!config.contains("Authorization"));
         assert!(HELPER_GUIDE_SCRIPT.contains("按已复制的分享链接自动处理"));
         assert!(!HELPER_GUIDE_SCRIPT.contains("提交 issue"));
@@ -2142,6 +2337,7 @@ mod tests {
                 enabled: false,
                 url: "http://127.0.0.1:33331/commands/pac".into(),
             },
+            windows: None,
         })
         .unwrap_err();
         assert_eq!(conflict.code, "different_proxies");
@@ -2165,6 +2361,7 @@ mod tests {
                 enabled: false,
                 url: String::new(),
             },
+            windows: None,
         })
         .unwrap_err();
 
@@ -2190,6 +2387,7 @@ mod tests {
                 enabled: false,
                 url: "http://127.0.0.1:33331/commands/pac".into(),
             },
+            windows: None,
         };
 
         let routed = session_network_state(&original, 22023);
@@ -2234,6 +2432,7 @@ mod tests {
                 enabled: false,
                 url: "http://127.0.0.1:33331/commands/pac".into(),
             },
+            windows: None,
         };
         let applied = session_network_state(&original, 22023);
         let mut partial = original.clone();
@@ -2241,6 +2440,62 @@ mod tests {
         assert!(network_state_is_owned(&partial, &original, &applied));
 
         partial.secure_web.port = 9999;
+        assert!(!network_state_is_owned(&partial, &original, &applied));
+    }
+
+    #[test]
+    fn windows_recovery_accepts_each_partially_written_registry_value() {
+        let original = NetworkSnapshot {
+            service: r"HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings".into(),
+            web: ProxyState {
+                enabled: false,
+                server: "existing-proxy".into(),
+                port: 0,
+            },
+            secure_web: ProxyState {
+                enabled: false,
+                server: "existing-proxy".into(),
+                port: 0,
+            },
+            auto_proxy: AutoProxyState {
+                enabled: false,
+                url: String::new(),
+            },
+            windows: Some(WindowsProxySnapshot {
+                proxy_enable: Some(0),
+                proxy_server: Some("existing-proxy".into()),
+                auto_config_url: None,
+            }),
+        };
+        let applied = NetworkSnapshot {
+            service: original.service.clone(),
+            web: ProxyState {
+                enabled: true,
+                server: "127.0.0.1:22023".into(),
+                port: 22023,
+            },
+            secure_web: ProxyState {
+                enabled: true,
+                server: "127.0.0.1:22023".into(),
+                port: 22023,
+            },
+            auto_proxy: AutoProxyState {
+                enabled: false,
+                url: String::new(),
+            },
+            windows: Some(WindowsProxySnapshot {
+                proxy_enable: Some(1),
+                proxy_server: Some("127.0.0.1:22023".into()),
+                auto_config_url: None,
+            }),
+        };
+        let mut partial = original.clone();
+        partial.windows.as_mut().unwrap().proxy_enable = Some(1);
+        partial.web.enabled = true;
+        partial.secure_web.enabled = true;
+        assert!(network_state_is_owned(&partial, &original, &applied));
+
+        partial.windows.as_mut().unwrap().proxy_server = Some("foreign-proxy".into());
         assert!(!network_state_is_owned(&partial, &original, &applied));
     }
 
@@ -2262,6 +2517,7 @@ mod tests {
                 enabled: false,
                 url: "http://127.0.0.1:33331/commands/pac".into(),
             },
+            windows: None,
         };
         let journal = RecoveryJournal {
             session_id: "legacy".into(),

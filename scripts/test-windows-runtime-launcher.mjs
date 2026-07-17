@@ -9,9 +9,20 @@ const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "
 const windowsConfig = JSON.parse(
   await readFile(path.join(root, "src-tauri", "tauri.windows.conf.json"), "utf8"),
 );
+const helperManifest = JSON.parse(
+  await readFile(path.join(root, "scripts", "authorized-sniffer-helper-windows.json"), "utf8"),
+);
 const packager = await readFile(path.join(root, "scripts", "package-windows-runtime.ps1"), "utf8");
+const helperBuilder = await readFile(
+  path.join(root, "scripts", "build-authorized-sniffer-helper-windows.ps1"),
+  "utf8",
+);
 const snifferRuntime = await readFile(
   path.join(root, "src-tauri", "src", "authorized_sniffer", "native.rs"),
+  "utf8",
+);
+const windowsSnifferRuntime = await readFile(
+  path.join(root, "src-tauri", "src", "authorized_sniffer", "native_windows.rs"),
   "utf8",
 );
 const launcher = await readFile(launcherPath);
@@ -44,18 +55,80 @@ if (windowsConfig.build?.beforeBuildCommand !== "pnpm build") {
 }
 if (
   !Array.isArray(windowsConfig.bundle?.externalBin)
-  || windowsConfig.bundle.externalBin.length !== 0
+  || !windowsConfig.bundle.externalBin.includes("bin/xunqi-authorized-sniffer")
 ) {
-  failures.push("Windows runtime must not bundle the unsupported macOS sniffer sidecar");
+  failures.push("Windows runtime does not declare the authorized-detection sidecar");
 }
-if (!snifferRuntime.includes('code: "windows_sniffer_unavailable"')) {
-  failures.push("Windows must report an explicit unsupported-platform conflict");
+if (snifferRuntime.includes('code: "windows_sniffer_unavailable"')) {
+  failures.push("Windows authorized detection is still blocked by the old platform gate");
 }
-if (!snifferRuntime.includes("这不是 WebView2 缺失")) {
-  failures.push("Windows conflict must distinguish authorized sniffing from WebView2");
+for (const required of ["APPDATA", "LOCALAPPDATA", "USERPROFILE"]) {
+  if (!snifferRuntime.includes(`.env("${required}"`)) {
+    failures.push(`Windows helper isolation is missing ${required}`);
+  }
 }
-for (const forbidden of ["xunqi-authorized-sniffer.exe", "THIRD-PARTY-wx_channels_download.txt"]) {
-  if (packager.includes(forbidden)) failures.push(`Windows portable package must not include ${forbidden}`);
+for (const required of [
+  String.raw`CurrentUser\Root`,
+  "XUNQI_CERT_FINGERPRINT",
+  "ProxyEnable",
+  "ProxyServer",
+  "AutoConfigURL",
+  "XUNQI_PROXY_ENABLE_PRESENT",
+  "InternetSetOptionW",
+  "Get-VpnConnection",
+  "-AllUserConnection",
+  "Win32_NetworkAdapter",
+  "NetConnectionStatus -eq 2",
+  "Windows VPN state could not be confirmed safely",
+  "Windows VpnClient command is unavailable",
+  "certificate still exists",
+  "Assert-OptionalValue",
+  "recovered_process_command",
+  "恢复记录已保留",
+]) {
+  if (!windowsSnifferRuntime.includes(required)) {
+    failures.push(`Windows recovery adapter is missing: ${required}`);
+  }
+}
+if (/Set-ItemProperty[^\n]+-(?:Type|PropertyType)\b/u.test(windowsSnifferRuntime)) {
+  failures.push("Windows proxy restoration uses an unsupported Set-ItemProperty type parameter");
+}
+if (/Remove-ItemProperty[^\n]+ErrorAction SilentlyContinue/u.test(windowsSnifferRuntime)) {
+  failures.push("Windows proxy restoration silently ignores registry removal failures");
+}
+if (!windowsSnifferRuntime.includes("New-ItemProperty -LiteralPath $path -Name ProxyEnable -PropertyType DWord")) {
+  failures.push("Windows proxy restoration does not preserve the ProxyEnable registry type");
+}
+if (windowsSnifferRuntime.includes(String.raw`LocalMachine\Root`)) {
+  failures.push("Windows session certificates must not be installed machine-wide");
+}
+if (!snifferRuntime.includes('fs::write(&log, [])') || !snifferRuntime.includes("set_private_file(&log)")) {
+  failures.push("Windows upstream log is not pre-created with a private session ACL");
+}
+for (const required of [
+  "xunqi-authorized-sniffer.exe",
+  "THIRD-PARTY-wx_channels_download.txt",
+]) {
+  if (!packager.includes(required)) failures.push(`Windows portable package is missing ${required}`);
+}
+if (!helperBuilder.includes("authorized-sniffer-helper-windows.json")) {
+  failures.push("Windows helper builder is not reading the shared pin manifest");
+}
+if (!windowsSnifferRuntime.includes("authorized-sniffer-helper-windows.json")) {
+  failures.push("Windows runtime is not reading the shared helper pin manifest");
+}
+for (const [label, value] of [
+  ["release tag", helperManifest.releaseTag],
+  ["asset name", helperManifest.assetName],
+  ["download URL", helperManifest.downloadUrl],
+]) {
+  if (typeof value !== "string" || value.length === 0) failures.push(`Windows helper ${label} is missing`);
+}
+for (const [label, value] of [
+  ["archive SHA-256", helperManifest.archiveSha256],
+  ["binary SHA-256", helperManifest.binarySha256],
+]) {
+  if (!/^[a-f0-9]{64}$/u.test(value)) failures.push(`Windows helper ${label} is invalid`);
 }
 
 if (failures.length > 0) {
@@ -63,4 +136,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Windows runtime launchers passed: prebuilt app, local log access, and an explicit sniffer boundary.");
+console.log("Windows runtime launchers passed: prebuilt app, local logs, and a pinned authorized-detection helper.");

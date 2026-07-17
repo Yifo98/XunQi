@@ -18,6 +18,8 @@ $TempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::
 $Stage = Join-Path $TempRoot $Name
 $Runtime = Join-Path $Stage "runtime"
 $Binary = Join-Path $Root "src-tauri/target/release/xunqi.exe"
+$SnifferHelper = Join-Path $Root "src-tauri/bin/xunqi-authorized-sniffer-x86_64-pc-windows-msvc.exe"
+$SnifferLicense = Join-Path $Root "src-tauri/bin/xunqi-authorized-sniffer-license.txt"
 $Zip = Join-Path $Release "$Name.zip"
 $Checksum = "$Zip.sha256"
 
@@ -26,6 +28,11 @@ if (-not (Test-Path -LiteralPath $Binary -PathType Leaf)) {
 }
 if ((Get-Item -LiteralPath $Binary).Length -le 0) {
   throw "Native Windows runtime is empty: $Binary"
+}
+foreach ($Required in @($SnifferHelper, $SnifferLicense)) {
+  if (-not (Test-Path -LiteralPath $Required -PathType Leaf)) {
+    throw "Authorized detection component was not found: $Required"
+  }
 }
 
 Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
@@ -45,6 +52,8 @@ Copy-AsciiBat (Join-Path $Root "assets/portable/Launch-XunQi-Windows-Runtime.bat
 Copy-AsciiBat (Join-Path $Root "assets/portable/Open-XunQi-Logs.bat") (Join-Path $Stage "Open-XunQi-Logs.bat")
 Copy-Item (Join-Path $Root "assets/portable/使用说明-Windows便携版.txt") (Join-Path $Stage "README-Windows.txt")
 Copy-Item $Binary (Join-Path $Runtime "xunqi.exe")
+Copy-Item $SnifferHelper (Join-Path $Runtime "xunqi-authorized-sniffer.exe")
+Copy-Item $SnifferLicense (Join-Path $Stage "THIRD-PARTY-wx_channels_download.txt")
 
 $PreviousSelfTest = $env:XUNQI_RUNTIME_LAUNCHER_SELF_TEST
 try {
@@ -72,7 +81,9 @@ try {
     "$Name/Launch-XunQi.bat",
     "$Name/Open-XunQi-Logs.bat",
     "$Name/README-Windows.txt",
-    "$Name/runtime/xunqi.exe"
+    "$Name/THIRD-PARTY-wx_channels_download.txt",
+    "$Name/runtime/xunqi.exe",
+    "$Name/runtime/xunqi-authorized-sniffer.exe"
   )
   $Names = @(
     $Archive.Entries |

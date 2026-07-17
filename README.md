@@ -38,8 +38,10 @@ XunQi-版本-Windows-x64-portable-unsigned/
 ├── Launch-XunQi.bat
 ├── Open-XunQi-Logs.bat
 ├── README-Windows.txt
+├── THIRD-PARTY-wx_channels_download.txt
 └── runtime/
-    └── xunqi.exe         # 原生 Windows Runner 从公开源码构建；当前未商业签名
+    ├── xunqi.exe                       # 原生 Windows Runner 从公开源码构建；当前未商业签名
+    └── xunqi-authorized-sniffer.exe    # 固定版本与校验值的本地识别助手
 ```
 
 普通用户 BAT 使用纯 ASCII 和 Windows CRLF，只启动包内已编译的 `runtime/xunqi.exe`，不联网安装依赖，也不要求 Node.js、pnpm、Rust 或 MSVC。`Open-XunQi-Logs.bat` 只打开本机启动日志目录；讯栖顶部的“导出日志”（“关于”页也有同一入口）可导出不含 Cookie、聊天记录、正文、分享链接、密码或令牌的诊断 TXT。开发者仍可单独生成“源码 + BAT”包，但它不再作为普通用户下载项。**BAT 不能绕过 Smart App Control**，Windows 仍可能检查 BAT 和未签名的运行文件。详见 [Smart App Control 评估](docs/SMART-APP-CONTROL.md)。
@@ -66,7 +68,7 @@ Windows 已补上原生微信前台识别，支持 `WeChat.exe`、`Weixin.exe` �
 - 单篇或批量导出保留原文结构的 PDF。
 - 导出 Markdown 与本地图片文件夹。
 - 识别页面公开提供的 HTTPS 视频文件并手动下载。
-- macOS 上可由用户明确授权临时启用视频号嗅探助手。
+- macOS 上可由用户明确授权临时启用视频号嗅探助手；Windows 适配已进入试验阶段，尚须原生 Runner 和真机验收。
 - 视频号支持“原始画质”与“节省空间（微信默认）”两种真实下载策略；连续授权期间保持同一策略。
 - 多条视频可进入单任务校验队列，完成一条后自动接续下一条；当前不同时运行多个授权嗅探任务。
 - 显示下载进度、速度、保存目录和已知媒体信息。
@@ -81,12 +83,12 @@ Windows 已补上原生微信前台识别，支持 `WeChat.exe`、`Weixin.exe` �
 | 直接粘贴链接收取任务 | 支持 | 支持 |
 | 公众号 PDF / Markdown 导出 | 支持 | 支持；PDF 依赖 Microsoft Edge |
 | 公开视频直链下载 | 支持 | 支持 |
-| 授权嗅探下载 | 支持 Apple Silicon | 暂不支持 |
+| 授权嗅探下载 | 支持 Apple Silicon | 试验支持；待原生 Runner 和真机验收 |
 | 代码签名 / 公证 | 未公证 | 便携候选包含未商业签名的 `xunqi.exe`；BAT 不会绕过 Windows 安全检查 |
 
 微信公众号和视频号没有向第三方提供“输入名称即可持续连接并读取全部更新”的公开接口。讯栖只处理用户主动复制或粘贴的分享链接，不读取聊天记录、微信本地数据库或密码。
 
-视频号公开分享页经常不直接提供媒体地址。macOS 授权嗅探会临时修改系统代理并信任一张本地会话证书，存在明确风险与平台限制。启用前请阅读 [安全说明](docs/SECURITY.md) 与 [隐私说明](docs/PRIVACY.md)，关闭 VPN 和其他系统代理，使用完立即结束并恢复网络。讯栖不提供录屏保存，也不绕过 DRM 或内容访问权限。
+视频号公开分享页经常不直接提供媒体地址。macOS 与 Windows 试验版授权嗅探会临时修改系统代理并信任一张本地会话证书，存在明确风险与平台限制。Windows 仅使用当前用户证书库，启用前还会检查 VPN/TUN、PAC 和系统代理；不安全时直接拒绝覆盖。请阅读 [安全说明](docs/SECURITY.md) 与 [隐私说明](docs/PRIVACY.md)，关闭 VPN 和其他系统代理，使用完立即结束并恢复网络。讯栖不提供录屏保存，也不绕过 DRM 或内容访问权限。
 
 ## 本地开发
 
@@ -110,7 +112,7 @@ pnpm package:portable:mac
 pnpm package:runtime:win
 ```
 
-便携包只允许一个预期的 `runtime/xunqi.exe`，拒绝 MSI、MSIX、APPX、CMD、源码开发依赖和其他可执行文件。同一工作流可手动选择 `developer_source` 生成开发者调试包；普通用户不要下载该源码包。不要把 BAT 描述成 Smart App Control 绕过方案，也不要在 Mac 上伪造 Windows 原生验收结果。
+便携包只允许两个预期运行文件：`runtime/xunqi.exe` 和 `runtime/xunqi-authorized-sniffer.exe`；拒绝 MSI、MSIX、APPX、CMD、源码开发依赖和其他可执行文件。同一工作流可手动选择 `developer_source` 生成开发者调试包；普通用户不要下载该源码包。不要把 BAT 描述成 Smart App Control 绕过方案，也不要在 Mac 上伪造 Windows 原生验收结果。
 
 ## 项目文档
 
