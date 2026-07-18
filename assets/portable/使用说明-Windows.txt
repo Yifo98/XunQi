@@ -1,11 +1,22 @@
-讯栖 · Windows 源码 + BAT 候选包
+讯栖 · Windows 源码 + BAT 开发者包
+
+重要说明
+- 这不是面向普通用户的免安装包；它会在本机从源码编译，所以必须安装开发工具。
+- 普通用户请下载名称包含“Windows-x64-portable-unsigned”的便携包，解压后直接双击 BAT，不需要 Node.js、pnpm、Rust 或 MSVC。
 
 使用方法
 1. 完整解压 ZIP，不要在压缩包内直接运行。
-2. 安装 Node.js 22、pnpm 11、Rust stable、Windows MSVC 构建工具和 WebView2。
-3. 双击“Launch-XunQi.bat”。首次运行会联网安装依赖，并从源码编译讯栖。
-4. 在微信中复制公众号文章或视频号分享链接。
-5. 微信位于前台时，讯栖会监听随后复制的新分享链接；也可以把完整链接粘贴到讯栖左侧搜索框。
+2. 安装 Node.js 22、Rust stable、Windows MSVC 构建工具和 WebView2；不要求预先全局安装 pnpm。
+3. 双击“Launch-XunQi.bat”。启动器只使用 ASCII 和 Windows CRLF，避免 cmd.exe 把中文 UTF-8 提示误当成命令。
+4. 首次运行时，启动器会依次尝试 Corepack、已安装的 pnpm 和 npx；成功后联网安装依赖，并从源码编译讯栖。
+5. 在微信中复制公众号文章或视频号分享链接。
+6. 微信位于前台时，讯栖会监听随后复制的新分享链接；也可以把完整链接粘贴到讯栖左侧搜索框。
+
+启动器排错
+- 如果看到“Preparing pnpm through Corepack”，请保持联网；Corepack 会按 package.json 中固定的版本准备 pnpm。
+- 如果 Corepack 不可用，启动器会尝试全局 pnpm，再尝试“npx --yes pnpm@11.7.0”，无需手动执行“corepack enable”。
+- 如果仍显示“pnpm could not be started”，请在命令提示符分别运行“corepack pnpm --version”和“npx --yes pnpm@11.7.0 --version”，保留完整错误信息。
+- 如果旧包出现“is not recognized as an internal or external command”并夹杂乱码，说明旧 BAT 被 cmd.exe 错误解析；请换用重新生成的测试包，不要继续使用旧 BAT。
 
 包内容
 - 外层只保留 Launch-XunQi.bat、本文档和完整 source 目录。
@@ -15,7 +26,7 @@
 智能应用控制说明
 - 当前候选包没有 Windows 商业代码签名。签名用于让 Windows 验证发布者身份和文件是否被篡改，不是讯栖的功能依赖，也不会赋予软件额外的系统权限；在 Windows 没有拦截的环境中，未签名不影响功能本身。
 - BAT 本身不等于受信任应用，也不能绕过 Windows Smart App Control。
-- BAT 启动的 Node.js、pnpm、Rust 工具和本地编译出的讯栖程序仍可能被 Windows 检查。
+- BAT 启动的 Node.js、Corepack / pnpm / npx、Rust 工具和本地编译出的讯栖程序仍可能被 Windows 检查。
 - “未签名”不等于恶意软件，但新项目缺少下载声誉时更容易触发 Windows 提醒或拦截。
 
 如果 Windows 提醒或拦截

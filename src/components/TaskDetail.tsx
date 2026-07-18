@@ -20,6 +20,7 @@ import type {
   SniffQualityMode,
   SniffSessionSnapshot,
 } from "../lib/backend";
+import { useI18n, type AppLanguage } from "../i18n";
 
 type TaskDetailProps = {
   detail: CaptureTaskDetail | null;
@@ -31,6 +32,7 @@ type TaskDetailProps = {
   onStopSniff: (sessionId: string) => void;
   onRecoverSniff: () => void;
   sniffSession: SniffSessionSnapshot | null;
+  authorizedSniffSupported: boolean;
   videoQualityMode: SniffQualityMode;
   onVideoQualityModeChange: (mode: SniffQualityMode) => void;
   onOpenOriginal: (url: string) => void;
@@ -66,6 +68,7 @@ export function TaskDetail({
   onStopSniff,
   onRecoverSniff,
   sniffSession,
+  authorizedSniffSupported,
   videoQualityMode,
   onVideoQualityModeChange,
   onOpenOriginal,
@@ -73,15 +76,16 @@ export function TaskDetail({
   articleBatch,
   videoQueue,
 }: TaskDetailProps) {
+  const { language, text } = useI18n();
   const [exportMode, setExportMode] = useState<ArticleExportMode>("pdf");
 
   if (!detail) {
     return (
       <main className="task-detail task-detail-empty">
         <img src={logoUrl} alt="讯栖" />
-        <h2>等待微信分享链接</h2>
-        <p>在微信中打开文章或视频号，点“分享 → 复制链接”，任务会自动出现在左侧。</p>
-        <span className="empty-brand-note">讯来有迹，文止于栖。只接住你主动选择的内容。</span>
+        <h2>{text("等待微信分享链接", "Waiting for a WeChat Share Link")}</h2>
+        <p>{text("在微信中打开文章或视频号，点“分享 → 复制链接”，任务会自动出现在左侧。", "Open an article or Channels video in WeChat, choose Share → Copy Link, and the task will appear on the left.")}</p>
+        <span className="empty-brand-note">{text("讯来有迹，文止于栖。只接住你主动选择的内容。", "Messages traced, stories at rest. Only content you choose is received.")}</span>
       </main>
     );
   }
@@ -98,10 +102,10 @@ export function TaskDetail({
           <h1>{task.title}</h1>
           <div className="detail-byline">
             <strong>{task.sourceName}</strong>
-            <StatusBadge status={task.status} detail={task.statusDetail} />
+            <StatusBadge kind={task.kind} status={task.status} />
           </div>
           <time dateTime={task.publishedAt ?? task.createdAt}>
-            {formatLongDate(task.publishedAt ?? task.createdAt)}
+            {formatLongDate(task.publishedAt ?? task.createdAt, language)}
           </time>
         </header>
 
@@ -115,6 +119,7 @@ export function TaskDetail({
             busy={busy}
             sniffSession={taskSniffSession}
             authorizationReusable={sniffSession?.authorizationReusable === true}
+            authorizedSniffSupported={authorizedSniffSupported}
             qualityMode={videoQualityMode}
             onStopSniff={onStopSniff}
             onRecoverSniff={onRecoverSniff}
@@ -125,23 +130,25 @@ export function TaskDetail({
           <div className="attention-note" role="status">
             <WarningCircleIcon size={22} weight="fill" />
             <div>
-              <strong>{task.status === "failed" ? "这次没有处理成功" : "当前页面需要你确认"}</strong>
-              <p>{task.statusDetail}</p>
+              <strong>{task.status === "failed"
+                ? text("这次没有处理成功", "This task could not be processed")
+                : text("当前页面需要你确认", "This page needs your review")}</strong>
+              <p>{localizedTaskStatusDetail(task, language)}</p>
             </div>
           </div>
         )}
       </div>
 
       {articleBatch.articleCount > 0 ? (
-        <footer className="detail-actions article-batch-actions" aria-label="公众号批量导出">
+        <footer className="detail-actions article-batch-actions" aria-label={text("公众号批量导出", "Batch article export")}>
           <div className="article-batch-summary">
             <span className="article-batch-icon"><FileTextIcon size={21} weight="duotone" /></span>
             <div>
-              <strong>已选 {articleBatch.articleCount} 篇公众号文章</strong>
+              <strong>{text(`已选 ${articleBatch.articleCount} 篇公众号文章`, `${articleBatch.articleCount} Articles Selected`)}</strong>
               <p>
                 {articleBatch.videoCount > 0
-                  ? `另选 ${articleBatch.videoCount} 个视频号，不参与本次 PDF 导出`
-                  : "未读取的文章会先自动处理，全部保存到同一文件夹"}
+                  ? text(`另选 ${articleBatch.videoCount} 个视频号，不参与本次 PDF 导出`, `${articleBatch.videoCount} selected Channels items will not be included in this PDF export`)
+                  : text("未读取的文章会先自动处理，全部保存到同一文件夹", "Unread articles are processed first, then all PDFs are saved in one folder")}
               </p>
             </div>
           </div>
@@ -152,7 +159,7 @@ export function TaskDetail({
               onClick={articleBatch.onClearSelection}
               disabled={articleBatch.busy}
             >
-              取消选择
+              {text("取消选择", "Clear Selection")}
             </button>
             <button
               type="button"
@@ -162,24 +169,26 @@ export function TaskDetail({
             >
               {articleBatch.busy ? <SpinnerGapIcon className="spin" size={20} /> : <DownloadSimpleIcon size={20} />}
               {articleBatch.busy && articleBatch.progressLabel
-                ? `正在批量导出 ${articleBatch.progressLabel}`
-                : `批量处理并导出 ${articleBatch.articleCount} 篇 PDF`}
+                ? text(`正在批量导出 ${articleBatch.progressLabel}`, `Exporting ${articleBatch.progressLabel}`)
+                : text(`批量处理并导出 ${articleBatch.articleCount} 篇 PDF`, `Process and Export ${articleBatch.articleCount} PDFs`)}
             </button>
           </div>
         </footer>
       ) : videoQueue.selectedCount > 0 ? (
-        <footer className="detail-actions video-queue-actions" aria-label="视频号连续下载队列">
+        <footer className="detail-actions video-queue-actions" aria-label={text("视频号连续下载队列", "Channels download queue")}>
           <div className="article-batch-summary">
             <span className="article-batch-icon"><VideoCameraIcon size={21} weight="duotone" /></span>
             <div>
               <strong>
                 {videoQueue.progressLabel
-                  ? `连续下载 ${videoQueue.progressLabel}`
-                  : `已选 ${videoQueue.selectedCount} 条视频号`}
+                  ? text(`连续下载 ${videoQueue.progressLabel}`, `Download Queue ${videoQueue.progressLabel}`)
+                  : text(`已选 ${videoQueue.selectedCount} 条视频号`, `${videoQueue.selectedCount} Channels Videos Selected`)}
               </strong>
               <p>
-                每条独立校验，完成后自动接下一条；同一队列只需首次授权一次。
-                {videoQueue.skippedCount > 0 ? ` 已跳过 ${videoQueue.skippedCount} 条已保存或不需要嗅探的视频。` : ""}
+                {text("每条独立校验，完成后自动接下一条；同一队列只需首次授权一次。", "Each video is verified independently, then the queue advances automatically. One authorization covers the queue.")}
+                {videoQueue.skippedCount > 0
+                  ? text(` 已跳过 ${videoQueue.skippedCount} 条已保存或不需要嗅探的视频。`, ` ${videoQueue.skippedCount} saved or direct-download items were skipped.`)
+                  : ""}
               </p>
             </div>
           </div>
@@ -189,14 +198,14 @@ export function TaskDetail({
               onChange={videoQueue.onQualityModeChange}
               disabled={videoQueue.running || videoQueue.qualityLocked}
             />
-            <span className="queue-concurrency-badge">单任务校验 · 自动续接</span>
+            <span className="queue-concurrency-badge">{text("单任务校验 · 自动续接", "One at a Time · Auto-Continue")}</span>
             <button
               type="button"
               className="secondary-action"
               onClick={videoQueue.onClearSelection}
               disabled={videoQueue.running}
             >
-              取消选择
+              {text("取消选择", "Clear Selection")}
             </button>
             <button
               type="button"
@@ -205,7 +214,9 @@ export function TaskDetail({
               disabled={videoQueue.running}
             >
               {videoQueue.running ? <SpinnerGapIcon className="spin" size={20} /> : <DownloadSimpleIcon size={20} />}
-              {videoQueue.running ? "队列处理中" : `开始连续下载 ${videoQueue.selectedCount} 条`}
+              {videoQueue.running
+                ? text("队列处理中", "Queue in Progress")
+                : text(`开始连续下载 ${videoQueue.selectedCount} 条`, `Download ${videoQueue.selectedCount} Videos`)}
             </button>
           </div>
         </footer>
@@ -215,11 +226,11 @@ export function TaskDetail({
           <label className="format-select">
             <FileTextIcon size={18} />
             <select value={exportMode} onChange={(event) => setExportMode(event.target.value as ArticleExportMode)}>
-              <option value="pdf">PDF（保留原文结构）</option>
-              <option value="markdown">Markdown + 本地图片</option>
+              <option value="pdf">{text("PDF（保留原文结构）", "PDF (Original Layout)")}</option>
+              <option value="markdown">{text("Markdown + 本地图片", "Markdown + Local Images")}</option>
             </select>
           </label>
-        ) : task.kind === "video" && video && !downloadable ? (
+        ) : task.kind === "video" && video && !downloadable && authorizedSniffSupported ? (
           <QualitySelect
             value={videoQualityMode}
             onChange={onVideoQualityModeChange}
@@ -228,7 +239,7 @@ export function TaskDetail({
         ) : (
           <span className="detail-capability">
             {task.kind === "video" ? <VideoCameraIcon size={18} /> : <FileTextIcon size={18} />}
-            {task.kind === "video" ? "公开视频直链" : "公开文章"}
+            {task.kind === "video" ? text("公开视频直链", "Public Video Link") : text("公开文章", "Public Article")}
           </span>
         )}
 
@@ -236,30 +247,32 @@ export function TaskDetail({
           {canProcess && (
             <button type="button" className="secondary-action" onClick={() => onProcess(task.id)} disabled={busy}>
               <ArrowClockwiseIcon size={19} />
-              {busy ? "正在处理" : "重新识别"}
+              {busy ? text("正在处理", "Processing") : text("重新识别", "Retry")}
             </button>
           )}
           {task.kind === "article" && article && (
             <button type="button" className="primary-action" onClick={() => onExport(task.id, exportMode)} disabled={busy}>
               {busy ? <SpinnerGapIcon className="spin" size={20} /> : <DownloadSimpleIcon size={20} />}
-              {exportMode === "pdf" ? "导出原版 PDF" : "导出到本地"}
+              {exportMode === "pdf" ? text("导出原版 PDF", "Export Original PDF") : text("导出到本地", "Export Locally")}
             </button>
           )}
           {task.kind === "video" && downloadable && (
             <button type="button" className="primary-action" onClick={() => onDownload(task.id, downloadable)} disabled={busy}>
               {busy ? <SpinnerGapIcon className="spin" size={20} /> : <DownloadSimpleIcon size={20} />}
-              下载到本地
+              {text("下载到本地", "Download Locally")}
             </button>
           )}
-          {task.kind === "video" && video && !downloadable && (
+          {task.kind === "video" && video && !downloadable && authorizedSniffSupported && (
             <button type="button" className="primary-action" onClick={() => onSniff(task.id)} disabled={busy || isActiveSniff(sniffSession)}>
               {busy ? <SpinnerGapIcon className="spin" size={20} /> : <LinkSimpleIcon size={20} />}
-              {sniffSession?.authorizationReusable ? "嗅探下载" : "授权嗅探下载"}
+              {sniffSession?.authorizationReusable
+                ? text("嗅探下载", "Detection Download")
+                : text("授权嗅探下载", "Authorize Detection")}
             </button>
           )}
           <button type="button" className="secondary-action" onClick={() => onOpenOriginal(task.shareUrl)} disabled={busy}>
             <ArrowSquareOutIcon size={19} />
-            打开微信原文
+            {text("打开微信原文", "Open in WeChat")}
           </button>
         </div>
       </footer>
@@ -275,13 +288,16 @@ function ArticleDetail({
   detail: CaptureTaskDetail;
   onRevealOutput: (path: string) => void;
 }) {
+  const { language, text } = useI18n();
   const { task, article } = detail;
   if (!article) {
     return (
       <section className="pending-detail">
         <SpinnerGapIcon className={task.status === "processing" ? "spin" : ""} size={34} />
-        <h2>{task.status === "processing" ? "正在读取公开文章" : "文章尚未读取"}</h2>
-        <p>讯栖会读取公开页面的标题、作者、发布时间和正文，不使用微信 Cookie。</p>
+        <h2>{task.status === "processing"
+          ? text("正在读取公开文章", "Reading Public Article")
+          : text("文章尚未读取", "Article Not Read Yet")}</h2>
+        <p>{text("讯栖会读取公开页面的标题、作者、发布时间和正文，不使用微信 Cookie。", "XunQi reads the title, author, date, and body from the public page without using WeChat cookies.")}</p>
       </section>
     );
   }
@@ -304,19 +320,29 @@ function ArticleDetail({
         <img className="article-cover" src={previewCoverUrl} alt={`${article.title}封面`} />
       )}
       <dl className="detail-metadata">
-        <Metadata label="类型" value="公众号文章" />
-        <Metadata label="作者" value={article.author || task.sourceName} />
-        <Metadata label="原文链接" value={article.canonicalUrl} link />
-        <Metadata label="字数统计" value={`约 ${article.wordCount.toLocaleString("zh-CN")} 字`} />
-        <Metadata label="资源统计" value={`图片 ${article.imageUrls.length} 张`} />
+        <Metadata label={text("类型", "Type")} value={text("公众号文章", "Official Account Article")} />
+        <Metadata label={text("作者", "Author")} value={article.author || task.sourceName} />
+        <Metadata label={text("原文链接", "Original Link")} value={article.canonicalUrl} link />
+        <Metadata
+          label={text("字数统计", "Word Count")}
+          value={language === "zh"
+            ? `约 ${article.wordCount.toLocaleString("zh-CN")} 字`
+            : `About ${article.wordCount.toLocaleString("en-US")} words`}
+        />
+        <Metadata
+          label={text("资源统计", "Assets")}
+          value={language === "zh"
+            ? `图片 ${article.imageUrls.length} 张`
+            : `${article.imageUrls.length} ${article.imageUrls.length === 1 ? "image" : "images"}`}
+        />
       </dl>
       {task.completedPath && (
         <div className="completed-output">
           <ArchiveBoxIcon size={20} />
-          <span>已保存到 {task.completedPath}</span>
+          <span>{text("已保存到", "Saved to")} {task.completedPath}</span>
           <button type="button" onClick={() => onRevealOutput(task.completedPath!)}>
             <FolderOpenIcon size={17} />
-            在 Finder 中显示
+            {text("在 Finder 中显示", "Show in Folder")}
           </button>
         </div>
       )}
@@ -341,6 +367,7 @@ function VideoDetail({
   busy,
   sniffSession,
   authorizationReusable,
+  authorizedSniffSupported,
   qualityMode,
   onStopSniff,
   onRecoverSniff,
@@ -351,17 +378,21 @@ function VideoDetail({
   busy: boolean;
   sniffSession: SniffSessionSnapshot | null;
   authorizationReusable: boolean;
+  authorizedSniffSupported: boolean;
   qualityMode: SniffQualityMode;
   onStopSniff: (sessionId: string) => void;
   onRecoverSniff: () => void;
 }) {
+  const { language, text } = useI18n();
   const { task, video } = detail;
   if (!video) {
     return (
       <section className="pending-detail">
         <SpinnerGapIcon className={task.status === "processing" ? "spin" : ""} size={34} />
-        <h2>{task.status === "processing" ? "正在识别公开视频" : "等待识别视频页面"}</h2>
-        <p>只检查页面公开声明的媒体地址，不抓包、不安装证书、不读取登录态。</p>
+        <h2>{task.status === "processing"
+          ? text("正在识别公开视频", "Detecting Public Video")
+          : text("等待识别视频页面", "Waiting to Inspect Video Page")}</h2>
+        <p>{text("只检查页面公开声明的媒体地址，不抓包、不安装证书、不读取登录态。", "Only public media addresses declared by the page are checked. No packet capture, certificates, or login state are used.")}</p>
       </section>
     );
   }
@@ -372,44 +403,58 @@ function VideoDetail({
         <VideoCameraIcon size={36} weight="duotone" />
         <div>
           <h2>{video.pageTitle}</h2>
-          <p>{video.limitation}</p>
+          <p>{localizedVideoLimitation(video, language)}</p>
         </div>
       </div>
       <div className="candidate-list">
         {video.candidates.length === 0 ? (
           <div className="candidate-empty">
             <WarningCircleIcon size={22} />
-            {video.limitation}
+            {localizedVideoLimitation(video, language)}
           </div>
         ) : (
           video.candidates.map((candidate) => (
             <article className="candidate-card" key={candidate.url}>
               <span className="candidate-icon"><LinkSimpleIcon size={20} /></span>
               <div>
-                <strong>{candidate.label}</strong>
+                <strong>{localizedCandidateLabel(candidate.label, language)}</strong>
                 <p>{candidate.url}</p>
                 <span className={candidate.downloadable ? "candidate-ready" : "candidate-blocked"}>
-                  {candidate.downloadable ? "可下载" : candidateKindLabel(candidate.kind)}
+                  {candidate.downloadable ? text("可下载", "Downloadable") : candidateKindLabel(candidate.kind, language)}
                 </span>
               </div>
               {candidate.downloadable && (
                 <button type="button" onClick={() => onDownload(task.id, candidate)} disabled={busy}>
                   <DownloadSimpleIcon size={19} />
-                  下载
+                  {text("下载", "Download")}
                 </button>
               )}
             </article>
           ))
         )}
       </div>
-      {video.candidates.every((candidate) => !candidate.downloadable) && !sniffSession && (
+      {video.candidates.every((candidate) => !candidate.downloadable) && !sniffSession && authorizedSniffSupported && (
         <div className="authorized-sniff-intro">
           <LinkSimpleIcon size={24} weight="duotone" />
           <div>
-            <strong>{authorizationReusable ? "连续授权可用" : "可改用授权嗅探助手"}</strong>
+            <strong>{authorizationReusable
+              ? text("连续授权可用", "Continuous Authorization Available")
+              : text("可改用授权嗅探助手", "Authorized Detection Available")}</strong>
             <p>{authorizationReusable
-              ? "下一条不再要求指纹；处理完成前请保持 VPN 关闭。"
-              : "请先关闭 VPN。首次确认后只在本机临时启用代理和会话证书。"}</p>
+              ? text("下一条不再要求指纹；处理完成前请保持 VPN 关闭。", "The next item will not request Touch ID again. Keep your VPN off until processing is complete.")
+              : text("请先关闭 VPN。首次确认后只在本机临时启用代理和会话证书。", "Turn off your VPN first. After confirmation, a local proxy and session certificate are enabled temporarily on this Mac.")}</p>
+          </div>
+        </div>
+      )}
+      {video.candidates.every((candidate) => !candidate.downloadable) && !authorizedSniffSupported && (
+        <div className="authorized-sniff-intro authorized-sniff-unavailable" role="note">
+          <WarningCircleIcon size={24} weight="duotone" />
+          <div>
+            <strong>{text("Windows 测试版暂不支持授权嗅探", "Authorized Detection Is Not Available on Windows Yet")}</strong>
+            <p>{text(
+              "这不是 WebView2 或安装包缺失。公众号导出和公开视频直链下载仍可使用；授权嗅探需等 Windows 网络恢复适配完成后再开放。",
+              "This is not a missing WebView2 component or an incomplete package. Article export and public direct-video downloads still work; authorized detection will be enabled only after Windows network recovery is safely supported.",
+            )}</p>
           </div>
         </div>
       )}
@@ -417,67 +462,70 @@ function VideoDetail({
         <div className={`sniff-session sniff-session-${sniffSession.phase}`} role="status">
           <SpinnerGapIcon className={isActiveSniff(sniffSession) ? "spin" : ""} size={24} />
           <div>
-            <strong>{sniffPhaseTitle(sniffSession.phase)}</strong>
-            <p>{sniffSession.message}</p>
+            <strong>{sniffPhaseTitle(sniffSession.phase, language)}</strong>
+            <p>{localizedSniffSessionMessage(sniffSession, language)}</p>
             {sniffSession.progress && (
-              <div className="sniff-progress" aria-label="下载进度">
+              <div className="sniff-progress" aria-label={text("下载进度", "Download progress")}>
                 <div className="sniff-progress-heading">
-                  <strong>{sniffSession.progress.percent === null ? "正在下载" : `${sniffSession.progress.percent}%`}</strong>
+                  <strong>{sniffSession.progress.percent === null ? text("正在下载", "Downloading") : `${sniffSession.progress.percent}%`}</strong>
                   <span>{formatBytes(sniffSession.progress.downloadedBytes)}{sniffSession.progress.totalBytes ? ` / ${formatBytes(sniffSession.progress.totalBytes)}` : ""}</span>
-                  <span>{formatSpeed(sniffSession.progress.bytesPerSecond)}</span>
+                  <span>{formatSpeed(sniffSession.progress.bytesPerSecond, language)}</span>
                 </div>
                 <div className="sniff-progress-track">
                   <span style={{ width: `${sniffSession.progress.percent ?? 4}%` }} />
                 </div>
               </div>
             )}
-            <div className="sniff-media-summary" aria-label="视频基础信息">
+            <div className="sniff-media-summary" aria-label={text("视频基础信息", "Video details")}>
               <div>
-                <span>画质</span>
-                <strong>{sniffSession.output?.qualityLabel ?? qualityModeLabel(qualityMode)}</strong>
+                <span>{text("画质", "Quality")}</span>
+                <strong>{sniffSession.output
+                  ? localizedOutputQualityLabel(sniffSession.output.qualityLabel, qualityMode, language)
+                  : qualityModeLabel(qualityMode, language)}</strong>
               </div>
               <div>
-                <span>{sniffSession.output ? "文件大小" : "预计大小"}</span>
+                <span>{sniffSession.output ? text("文件大小", "File Size") : text("预计大小", "Estimated Size")}</span>
                 <strong>{formatOptionalBytes(
                   sniffSession.output?.bytesWritten
                     ?? sniffSession.progress?.totalBytes
                     ?? sniffSession.progress?.downloadedBytes
                     ?? null,
+                  language,
                 )}</strong>
               </div>
               <div>
-                <span>分辨率</span>
+                <span>{text("分辨率", "Resolution")}</span>
                 <strong>{sniffSession.output?.width && sniffSession.output?.height
                   ? `${sniffSession.output.width} × ${sniffSession.output.height}`
-                  : "完成后读取"}</strong>
+                  : text("完成后读取", "Read after download")}</strong>
               </div>
             </div>
             <p className="sniff-media-note">{qualityMode === "original"
-              ? "本次按原始视频保存；实际分辨率和大小会在下载后读取。"
-              : "本次使用微信返回的默认规格以节省空间；实际分辨率和大小会在下载后读取。"}</p>
+              ? text("本次按原始视频保存；实际分辨率和大小会在下载后读取。", "The original stream will be saved. Resolution and size are read after download.")
+              : text("本次使用微信返回的默认规格以节省空间；实际分辨率和大小会在下载后读取。", "WeChat's default stream is used to save space. Resolution and size are read after download.")}</p>
             {sniffSession.destinationDirectory && (
-              <p className="sniff-destination">保存到 {sniffSession.destinationDirectory}</p>
+              <p className="sniff-destination">{text("保存到", "Save to")} {sniffSession.destinationDirectory}</p>
             )}
             {isActiveSniff(sniffSession) && (
               <p className="sniff-session-tip">
-                不要退出微信，也不要在浏览器扫码。请从微信左侧重新进入一次“视频号”；无需刷新，也不用寻找页面下载按钮。讯栖只会下载当前任务里已经复制的分享链接。
+                {text("不要退出微信，也不要在浏览器扫码。请从微信左侧重新进入一次“视频号”；无需刷新，也不用寻找页面下载按钮。讯栖只会下载当前任务里已经复制的分享链接。", "Do not quit WeChat or scan a browser QR code. Re-enter Channels from WeChat's sidebar once; do not refresh or look for an in-page download button. XunQi downloads only the copied link bound to this task.")}
               </p>
             )}
             <div className="sniff-session-actions">
               {sniffSession.destinationDirectory && (
                 <button type="button" onClick={() => onRevealOutput(sniffSession.destinationDirectory)}>
                   <FolderOpenIcon size={17} />
-                  打开保存位置
+                  {text("打开保存位置", "Open Save Location")}
                 </button>
               )}
               {(isActiveSniff(sniffSession) || sniffSession.authorizationReusable) && (
                 <button type="button" onClick={() => onStopSniff(sniffSession.sessionId)}>
-                  结束并恢复网络
+                  {text("结束并恢复网络", "End and Restore Network")}
                 </button>
               )}
               {sniffSession.phase === "restoration_required" && (
                 <button type="button" onClick={onRecoverSniff}>
-                  立即恢复网络设置
+                  {text("立即恢复网络设置", "Restore Network Settings")}
                 </button>
               )}
             </div>
@@ -485,19 +533,24 @@ function VideoDetail({
         </div>
       )}
       <dl className="detail-metadata">
-        <Metadata label="类型" value="视频号内容" />
-        <Metadata label="来源" value={video.sourceName || task.sourceName} />
-        {video.publishedAt && <Metadata label="发布时间" value={formatLongDate(video.publishedAt)} />}
-        <Metadata label="分享链接" value={video.pageUrl} link />
-        <Metadata label="识别结果" value={`${video.candidates.filter((candidate) => candidate.downloadable).length} 个可下载视频`} />
+        <Metadata label={text("类型", "Type")} value={text("视频号内容", "WeChat Channels Video")} />
+        <Metadata label={text("来源", "Source")} value={video.sourceName || task.sourceName} />
+        {video.publishedAt && <Metadata label={text("发布时间", "Published")} value={formatLongDate(video.publishedAt, language)} />}
+        <Metadata label={text("分享链接", "Share Link")} value={video.pageUrl} link />
+        <Metadata
+          label={text("识别结果", "Detection Result")}
+          value={language === "zh"
+            ? `${video.candidates.filter((candidate) => candidate.downloadable).length} 个可下载视频`
+            : `${video.candidates.filter((candidate) => candidate.downloadable).length} downloadable videos`}
+        />
       </dl>
       {task.completedPath && (
         <div className="completed-output">
           <ArchiveBoxIcon size={20} />
-          <span>已保存到 {task.completedPath}</span>
+          <span>{text("已保存到", "Saved to")} {task.completedPath}</span>
           <button type="button" onClick={() => onRevealOutput(task.completedPath!)}>
             <FolderOpenIcon size={17} />
-            在 Finder 中显示
+            {text("在 Finder 中显示", "Show in Folder")}
           </button>
         </div>
       )}
@@ -509,6 +562,57 @@ function isActiveSniff(session: SniffSessionSnapshot | null) {
   return session !== null && ["starting", "awaiting_playback", "capturing", "saving", "restoring"].includes(session.phase);
 }
 
+function localizedTaskStatusDetail(
+  task: CaptureTaskDetail["task"],
+  language: AppLanguage,
+) {
+  if (language === "zh") return task.statusDetail;
+  const byStatus: Record<CaptureStatus, string> = {
+    queued: "Waiting to be processed.",
+    processing: task.kind === "video" ? "Inspecting the public video page…" : "Reading the public article…",
+    ready: task.kind === "video" ? "A public downloadable video is available." : "The article is ready to export.",
+    needs_attention: task.kind === "video"
+      ? "The public page did not expose a downloadable media address. Review the available options below."
+      : "The public article needs review before it can be exported.",
+    exporting: "Exporting the article…",
+    downloading: "Downloading the video…",
+    completed: task.completedPath ? `Saved to ${task.completedPath}` : "Processing completed.",
+    failed: "Processing failed. Export the diagnostic log if you need help troubleshooting.",
+  };
+  return byStatus[task.status];
+}
+
+function localizedVideoLimitation(
+  video: NonNullable<CaptureTaskDetail["video"]>,
+  language: AppLanguage,
+) {
+  if (language === "zh") return video.limitation;
+  if (video.candidates.some((candidate) => candidate.downloadable)) {
+    return "A public downloadable media address was found.";
+  }
+  return "The public page did not expose a downloadable media address. Script-loaded, session-bound, or protected streams may not be available.";
+}
+
+function localizedSniffSessionMessage(
+  session: SniffSessionSnapshot,
+  language: AppLanguage,
+) {
+  if (language === "zh") return session.message;
+  const messages: Record<SniffSessionSnapshot["phase"], string> = {
+    starting: "Starting the local assistant and preparing the temporary network session…",
+    awaiting_playback: "Return to WeChat and enter Channels once so the copied video can load.",
+    capturing: "The matching video was detected and is being verified.",
+    saving: "Saving and validating the video file…",
+    restoring: "Restoring the original network settings…",
+    completed: "The video was saved and verified.",
+    failed_reusable: "This video was not completed. The authorization session can still be used for the next item.",
+    failed_restored: "The download failed and the original network settings were restored.",
+    cancelled_restored: "The assistant stopped and the original network settings were restored.",
+    restoration_required: "Automatic recovery did not finish. Restore the network settings before starting another task.",
+  };
+  return messages[session.phase];
+}
+
 function QualitySelect({
   value,
   onChange,
@@ -518,28 +622,42 @@ function QualitySelect({
   onChange: (mode: SniffQualityMode) => void;
   disabled: boolean;
 }) {
+  const { language } = useI18n();
   return (
     <label className="format-select quality-select">
       <VideoCameraIcon size={18} />
       <select
-        aria-label="视频下载画质"
+        aria-label={language === "zh" ? "视频下载画质" : "Video download quality"}
         value={value}
         onChange={(event) => onChange(event.target.value as SniffQualityMode)}
         disabled={disabled}
       >
-        <option value="original">原始画质（文件较大）</option>
-        <option value="space_saver">节省空间（微信默认）</option>
+        <option value="original">{language === "zh" ? "原始画质（文件较大）" : "Original Quality (Larger File)"}</option>
+        <option value="space_saver">{language === "zh" ? "节省空间（微信默认）" : "Save Space (WeChat Default)"}</option>
       </select>
     </label>
   );
 }
 
-function qualityModeLabel(mode: SniffQualityMode) {
+function qualityModeLabel(mode: SniffQualityMode, language: AppLanguage) {
+  if (language === "en") return mode === "original" ? "Original Quality" : "Save Space (WeChat Default)";
   return mode === "original" ? "原始画质" : "节省空间（微信默认）";
 }
 
-function sniffPhaseTitle(phase: SniffSessionSnapshot["phase"]) {
-  return {
+function localizedOutputQualityLabel(
+  label: string,
+  fallbackMode: SniffQualityMode,
+  language: AppLanguage,
+) {
+  if (language === "zh" || !containsChinese(label)) return label;
+  if (label === "原始画质") return "Original Quality";
+  const wechatSpec = label.match(/^节省空间（微信默认规格 (.+)）$/u);
+  if (wechatSpec) return `Save Space (WeChat Default ${wechatSpec[1]})`;
+  return qualityModeLabel(fallbackMode, language);
+}
+
+function sniffPhaseTitle(phase: SniffSessionSnapshot["phase"], language: AppLanguage) {
+  return (language === "zh" ? {
     starting: "正在启用授权助手",
     awaiting_playback: "请回微信播放视频",
     capturing: "已经识别到视频",
@@ -550,7 +668,18 @@ function sniffPhaseTitle(phase: SniffSessionSnapshot["phase"]) {
     failed_restored: "未能下载，网络已恢复",
     cancelled_restored: "已停止，网络已恢复",
     restoration_required: "网络设置需要恢复",
-  }[phase];
+  } : {
+    starting: "Enabling Authorized Assistant",
+    awaiting_playback: "Play the Video in WeChat",
+    capturing: "Video Detected",
+    saving: "Saving Video",
+    restoring: "Restoring Network",
+    completed: "Video Saved",
+    failed_reusable: "This Item Failed; Session Still Available",
+    failed_restored: "Download Failed; Network Restored",
+    cancelled_restored: "Stopped; Network Restored",
+    restoration_required: "Network Settings Need Recovery",
+  })[phase];
 }
 
 function formatBytes(bytes: number) {
@@ -560,12 +689,12 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
-function formatOptionalBytes(bytes: number | null) {
-  return bytes && bytes > 0 ? formatBytes(bytes) : "等待识别";
+function formatOptionalBytes(bytes: number | null, language: AppLanguage) {
+  return bytes && bytes > 0 ? formatBytes(bytes) : language === "zh" ? "等待识别" : "Waiting";
 }
 
-function formatSpeed(bytesPerSecond: number) {
-  return bytesPerSecond > 0 ? `${formatBytes(bytesPerSecond)}/s` : "正在校验文件";
+function formatSpeed(bytesPerSecond: number, language: AppLanguage) {
+  return bytesPerSecond > 0 ? `${formatBytes(bytesPerSecond)}/s` : language === "zh" ? "正在校验文件" : "Verifying file";
 }
 
 function Metadata({ label, value, link = false }: { label: string; value: string; link?: boolean }) {
@@ -577,33 +706,64 @@ function Metadata({ label, value, link = false }: { label: string; value: string
   );
 }
 
-function StatusBadge({ status, detail }: { status: CaptureStatus; detail: string }) {
-  const labels: Record<CaptureStatus, string> = {
+function StatusBadge({ kind, status }: { kind: CaptureTaskDetail["task"]["kind"]; status: CaptureStatus }) {
+  const { language } = useI18n();
+  const labels: Record<CaptureStatus, string> = language === "zh" ? {
     queued: "等待处理",
     processing: "正在读取",
-    ready: detail.includes("视频") ? "视频可下载" : "内容读取完成",
+    ready: kind === "video" ? "视频可下载" : "内容读取完成",
     needs_attention: "需要查看",
     exporting: "正在导出",
     downloading: "正在下载",
     completed: "处理完成",
     failed: "处理失败",
+  } : {
+    queued: "Queued",
+    processing: "Reading",
+    ready: kind === "video" ? "Video Ready" : "Content Ready",
+    needs_attention: "Review Needed",
+    exporting: "Exporting",
+    downloading: "Downloading",
+    completed: "Completed",
+    failed: "Failed",
   };
   return <span className={`detail-status detail-status-${status}`}>{labels[status]}</span>;
 }
 
-function candidateKindLabel(kind: DetectedVideo["kind"]) {
-  return {
+function candidateKindLabel(kind: DetectedVideo["kind"], language: AppLanguage) {
+  return (language === "zh" ? {
     direct_file: "当前不可下载",
     hls_playlist: "HLS 暂不下载",
     dash_manifest: "DASH 暂不下载",
     unsupported: "受保护或动态媒体",
-  }[kind];
+  } : {
+    direct_file: "Unavailable",
+    hls_playlist: "HLS Not Supported Yet",
+    dash_manifest: "DASH Not Supported Yet",
+    unsupported: "Protected or Dynamic Media",
+  })[kind];
 }
 
-function formatLongDate(value: string) {
+function localizedCandidateLabel(label: string, language: AppLanguage) {
+  if (language === "zh" || !containsChinese(label)) return label;
+  const labels: Record<string, string> = {
+    "公开视频文件": "Public Video File",
+    "微信公开视频（H.264）": "WeChat Public Video (H.264)",
+    "微信公开视频（H.265）": "WeChat Public Video (H.265)",
+    "微信原始视频": "WeChat Original Video",
+    "微信公开视频": "WeChat Public Video",
+  };
+  return labels[label] ?? "Detected Video";
+}
+
+function containsChinese(value: string) {
+  return /[\u3400-\u9fff]/u.test(value);
+}
+
+function formatLongDate(value: string, language: AppLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

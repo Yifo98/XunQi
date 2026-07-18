@@ -1,13 +1,78 @@
-name: Windows source and BAT package
+name: Windows packages
 
 on:
   workflow_dispatch:
+    inputs:
+      package_kind:
+        description: Package to build
+        required: true
+        default: portable_runtime
+        type: choice
+        options:
+          - portable_runtime
+          - developer_source
 
 permissions:
   contents: read
 
 jobs:
+  build-windows-runtime:
+    if: ${{ inputs.package_kind == 'portable_runtime' }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read package version
+        id: package
+        shell: pwsh
+        run: |
+          $Version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          "name=XunQi-$Version-Windows-x64-portable-unsigned" >> $env:GITHUB_OUTPUT
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check frontend and launchers
+        run: pnpm lint && pnpm typecheck && pnpm test:run && pnpm test:header-layout && pnpm test:windows-launcher && pnpm test:windows-runtime-launcher
+
+      - name: Test Rust on native Windows
+        run: cargo test --release --manifest-path src-tauri/Cargo.toml
+
+      - name: Build native Windows runtime
+        run: pnpm tauri build --no-bundle --ci
+
+      - name: Build portable ZIP
+        shell: pwsh
+        run: ./scripts/package-windows-runtime.ps1
+
+      - name: Upload unsigned portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: |
+            release/${{ steps.package.outputs.name }}.zip
+            release/${{ steps.package.outputs.name }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
   build-windows-source-package:
+    if: ${{ inputs.package_kind == 'developer_source' }}
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
@@ -39,7 +104,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check frontend
-        run: pnpm lint && pnpm typecheck && pnpm test:run
+        run: pnpm lint && pnpm typecheck && pnpm test:run && pnpm test:header-layout && pnpm test:windows-launcher
 
       - name: Test Rust on Windows
         run: cargo test --release --manifest-path src-tauri/Cargo.toml

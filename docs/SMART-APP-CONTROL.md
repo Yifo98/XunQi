@@ -1,6 +1,6 @@
 # Windows Smart App Control 边界
 
-本文仅讨论讯栖 Windows “完整源码 + `Launch-XunQi.bat`”预览包与 Smart App Control 的关系。结论依据均为微软官方资料。
+本文讨论讯栖 Windows “免开发环境便携包”和“完整源码 + BAT 开发者包”与 Smart App Control 的关系。结论依据均为微软官方资料。
 
 ## 结论
 
@@ -8,7 +8,7 @@
 
 2. **BAT/CMD 不是绕过方案。** 微软说明 Smart App Control 建立在 App Control for Business 之上；App Control 不直接控制由 Windows Command Processor（`cmd.exe`）执行的代码，包括 `.bat` / `.cmd` 文件，但批处理文件尝试启动的任何程序仍受 App Control 控制。因此，把启动逻辑放进 BAT 不会让它后续启动的 EXE、DLL 或其他二进制获得豁免。见 [Understand App Control script enforcement](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/design/script-enforcement#scripts-that-arent-directly-controlled-by-app-control)。
 
-3. **“源码 + BAT”只是改变交付边界。** 讯栖当前 Windows 预览包的设计边界是：只交付完整源码、`Launch-XunQi.bat` 和说明文件，不直接交付预编译的 XunQi EXE 或安装器。这避免了把一个新的、未签名的 XunQi EXE 直接作为发布物，但不改变 Smart App Control 的判定。BAT 调用的 Node.js、pnpm、Rust/Cargo 与 Tauri 工具，以及本地构建生成的讯栖程序，仍可能在加载时受到控制。所以这种包只能表述为“不直接分发预编译未知 EXE”，不能表述为“解决”或“绕过” Smart App Control。
+3. **便携包和源码包都只是在改变交付边界。** 面向普通用户的便携候选包由 GitHub 原生 Windows Runner 从公开源码预编译，用户不需要 Node.js、pnpm、Rust 或 MSVC；它仍包含一个新的、未商业签名的 `xunqi.exe`，可能被 Smart App Control 检查。开发者包在本机调用 Node.js、pnpm、Rust/Cargo 与 Tauri，从源码生成的程序同样可能被检查。两种 BAT 都不能表述为“解决”或“绕过” Smart App Control。
 
 4. **正式 Windows 分发仍应使用可信签名，并在强制模式覆盖全部二进制路径。** 微软说明 Smart App Control 接受基于 RSA 的数字证书，并且只把可信提供者签发的证书视为可信；微软将 Trusted Signing 列为首选签名方式。见 [Sign your app for Smart App Control compliance](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/code-signing-for-smart-app-control)。
 
@@ -16,7 +16,7 @@
 
 ## 没有签名是否影响使用
 
-当前讯栖 Windows 预览版没有商业代码签名。代码签名解决的是“发布者是谁、文件发布后是否被篡改”的身份与完整性问题，并不是应用运行所必需的功能，也不会给软件增加读取隐私数据的权限。在 Smart App Control、SmartScreen 或组织策略没有拦截时，本地源码构建可以正常使用。
+当前讯栖 Windows 候选版没有商业代码签名。代码签名解决的是“发布者是谁、文件发布后是否被篡改”的身份与完整性问题，并不是应用运行所必需的功能，也不会给软件增加读取隐私数据的权限。在 Smart App Control、SmartScreen 或组织策略没有拦截时，便携运行文件和本地源码构建都可以正常使用。
 
 因此，准确表述是：**未签名不影响讯栖功能逻辑，但可能影响 Windows 是否允许本地生成的程序启动。** “未签名”也不自动等于恶意软件；Windows 在缺少签名和云端声誉时，只是无法建立足够的信任判断。
 
@@ -31,7 +31,7 @@
 
 ## 隐私与安全解释
 
-- Windows 预览包只交付公开源码、BAT 和说明文件，不交付讯栖 EXE、安装器或后台服务。
+- 普通用户便携包交付 BAT、说明文件和由原生 Windows Runner 从公开源码构建的单一讯栖运行文件；不含安装器、后台服务或开发工具链。开发者包仍交付公开源码。
 - 讯栖只处理用户主动复制或粘贴的微信分享链接；不读取聊天记录、通讯录、微信数据库或密码。
 - 公众号公开读取默认不使用微信 Cookie；任务、正文和导出内容保存在本机，不提供云端账号、远程数据库或遥测上报。
 - 首次安装依赖、读取公开页面和下载用户选择的内容需要联网，但讯栖不会把本地任务或导出内容上传到自有服务器。
@@ -39,7 +39,7 @@
 
 ## 讯栖发布准则
 
-- Windows 源码预览包不包含 XunQi EXE、DLL、MSI、MSIX、APPX 或其他安装器。
-- `Launch-XunQi.bat` 只负责环境检查、依赖安装和本地构建/启动；文档、UI 和发布说明不得将其宣称为安全控制绕过方案。
+- Windows 普通用户便携包只允许预期的 `runtime/xunqi.exe`，不包含 MSI、MSIX、APPX、后台服务、源码开发依赖或额外可执行文件。
+- 普通用户 `Launch-XunQi.bat` 只启动包内运行文件；开发者 BAT 负责环境检查、依赖安装和本地构建。文档、UI 和发布说明不得将任何 BAT 宣称为安全控制绕过方案。
 - 本地构建失败或生成程序被拦截时，先指导用户核对来源、校验值和拦截类型；不得自动关闭系统保护，也不得把普通下载标记、SmartScreen、Smart App Control 与组织 App Control 混为一谈。
 - 在可信签名与 Smart App Control 强制模式验收完成前，Windows 产物保持 Preview 标识，不承诺在所有已启用 Smart App Control 的设备上可运行。

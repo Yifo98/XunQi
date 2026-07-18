@@ -147,6 +147,13 @@ pub struct OutputResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct DiagnosticExportResult {
+    pub destination: String,
+    pub bytes_written: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct WechatForegroundStatus {
     pub is_wechat_frontmost: bool,
     pub application_name: Option<String>,

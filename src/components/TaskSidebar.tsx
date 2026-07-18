@@ -10,6 +10,7 @@ import {
   VideoCameraIcon,
 } from "@phosphor-icons/react";
 import type { CaptureKind, CaptureTaskDetail } from "../lib/backend";
+import { useI18n, type AppLanguage } from "../i18n";
 
 export type KindFilter = "all" | CaptureKind;
 
@@ -73,6 +74,7 @@ export function TaskSidebar({
   onClearCompleted,
   onCollapse,
 }: TaskSidebarProps) {
+  const { language, text } = useI18n();
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const visibleSelectedCount = groups.reduce(
     (count, group) => count + group.tasks.filter(({ task }) => selectedTaskIds.has(task.id)).length,
@@ -81,13 +83,13 @@ export function TaskSidebar({
   const hasHiddenSelection = selectedCount > visibleSelectedCount;
 
   return (
-    <aside className="task-sidebar" aria-label="捕获任务">
+    <aside className="task-sidebar" aria-label={text("捕获任务", "Capture Tasks")}>
       <div className="sidebar-heading">
         <div>
-          <strong>捕获任务</strong>
+          <strong>{text("捕获任务", "Capture Tasks")}</strong>
           <span>{totalCount}</span>
         </div>
-        <button type="button" className="icon-button" onClick={onCollapse} aria-label="收起任务列表">
+        <button type="button" className="icon-button" onClick={onCollapse} aria-label={text("收起任务列表", "Collapse task list")}>
           <CaretLeftIcon size={20} weight="bold" />
         </button>
       </div>
@@ -98,24 +100,24 @@ export function TaskSidebar({
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="搜索公众号、视频号或标题"
-            aria-label="搜索公众号、视频号或标题"
+            placeholder={text("搜索公众号、视频号或标题", "Search account, channel, or title")}
+            aria-label={text("搜索公众号、视频号或标题", "Search account, channel, or title")}
           />
         </label>
-        <span className="filter-icon" aria-hidden="true" title="使用下方标签筛选">
+        <span className="filter-icon" aria-hidden="true" title={text("使用下方标签筛选", "Filter with the tabs below")}>
           <FunnelSimpleIcon size={19} />
         </span>
       </div>
 
-      <div className="kind-tabs" role="tablist" aria-label="任务类型">
+      <div className="kind-tabs" role="tablist" aria-label={text("任务类型", "Task type")}>
         <FilterTab selected={filter === "all"} onClick={() => onFilterChange("all")}>
-          全部 <span>{totalCount}</span>
+          {text("全部", "All")} <span>{totalCount}</span>
         </FilterTab>
         <FilterTab selected={filter === "article"} onClick={() => onFilterChange("article")}>
-          公众号 <span>{articleCount}</span>
+          {text("公众号", "Articles")} <span>{articleCount}</span>
         </FilterTab>
         <FilterTab selected={filter === "video"} onClick={() => onFilterChange("video")}>
-          视频号 <span>{videoCount}</span>
+          {text("视频号", "Channels")} <span>{videoCount}</span>
         </FilterTab>
       </div>
 
@@ -130,8 +132,12 @@ export function TaskSidebar({
           >
             <span className="bulk-selection-mark" aria-hidden="true">{allVisibleSelected ? "✓" : ""}</span>
             {allVisibleSelected
-              ? `${hasHiddenSelection ? "取消当前" : "取消全选"}${filterLabel(filter)} ${visibleTaskCount} 项`
-              : `全选${filterLabel(filter)} ${visibleTaskCount} 项`}
+              ? language === "zh"
+                ? `${hasHiddenSelection ? "取消当前" : "取消全选"}${filterLabel(filter, language)} ${visibleTaskCount} 项`
+                : `${hasHiddenSelection ? "Deselect Current" : "Deselect All"}${englishFilterSuffix(filter)} (${visibleTaskCount})`
+              : language === "zh"
+                ? `全选${filterLabel(filter, language)} ${visibleTaskCount} 项`
+                : `Select All${englishFilterSuffix(filter)} (${visibleTaskCount})`}
           </button>
           {hasHiddenSelection ? (
             <button
@@ -140,10 +146,10 @@ export function TaskSidebar({
               onClick={onClearSelection}
               disabled={batchBusy}
             >
-              取消全部已选 {selectedCount} 项
+              {text(`取消全部已选 ${selectedCount} 项`, `Deselect All (${selectedCount})`)}
             </button>
           ) : (
-            <small>切换分类后仍保留已选项</small>
+            <small>{text("切换分类后仍保留已选项", "Selections remain when switching tabs")}</small>
           )}
         </div>
       )}
@@ -152,8 +158,12 @@ export function TaskSidebar({
         {groups.length === 0 ? (
           <div className="sidebar-empty">
             <MagnifyingGlassIcon size={30} />
-            <strong>{totalCount === 0 ? "还没有捕获任务" : "没有匹配的任务"}</strong>
-            <p>{totalCount === 0 ? "去微信复制文章或视频号分享链接。" : "换个关键词或清除筛选。"}</p>
+            <strong>{totalCount === 0
+              ? text("还没有捕获任务", "No captured tasks yet")
+              : text("没有匹配的任务", "No matching tasks")}</strong>
+            <p>{totalCount === 0
+              ? text("去微信复制文章或视频号分享链接。", "Copy an article or Channels share link in WeChat.")
+              : text("换个关键词或清除筛选。", "Try another keyword or clear the filter.")}</p>
           </div>
         ) : (
           groups.map((group) => {
@@ -186,7 +196,7 @@ export function TaskSidebar({
                             type="checkbox"
                             checked={selectedTaskIds.has(task.id)}
                             onChange={() => onToggleSelected(task.id)}
-                            aria-label={`选择${task.title}`}
+                            aria-label={language === "zh" ? `选择${task.title}` : `Select ${task.title}`}
                           />
                         </label>
                         <button type="button" className="task-row-main" onClick={() => onActivate(task.id)}>
@@ -200,9 +210,9 @@ export function TaskSidebar({
                           <span className="task-row-copy">
                             <span className="task-title-line">
                               <strong>{task.title}</strong>
-                              <time dateTime={task.createdAt}>{formatTaskTime(task.createdAt)}</time>
+                              <time dateTime={task.createdAt}>{formatTaskTime(task.createdAt, language)}</time>
                             </span>
-                            <TaskStatus status={task.status} statusDetail={task.statusDetail} />
+                            <TaskStatus kind={task.kind} status={task.status} />
                           </span>
                         </button>
                       </div>
@@ -213,7 +223,9 @@ export function TaskSidebar({
                         className="show-more-tasks"
                         onClick={() => setExpandedSources((current) => toggleSource(current, group.sourceName))}
                       >
-                        {expanded ? "收起" : `查看更多 (${group.tasks.length - 3})`}
+                        {expanded
+                          ? text("收起", "Show Less")
+                          : text(`查看更多 (${group.tasks.length - 3})`, `Show More (${group.tasks.length - 3})`)}
                         <CaretDownIcon className={expanded ? "show-more-open" : ""} size={14} />
                       </button>
                     )}
@@ -229,37 +241,40 @@ export function TaskSidebar({
         {selectedCount > 0 ? (
           <div className="batch-bar">
             <div>
-              <strong>已选 {selectedCount} 项</strong>
+              <strong>{text(`已选 ${selectedCount} 项`, `${selectedCount} Selected`)}</strong>
               <small>
-                公众号 {selectedArticleCount}
-                {selectedVideoCount > 0 ? ` · 视频号 ${selectedVideoCount}` : ""}
+                {text("公众号", "Articles")} {selectedArticleCount}
+                {selectedVideoCount > 0 ? ` · ${text("视频号", "Channels")} ${selectedVideoCount}` : ""}
               </small>
             </div>
             <div className="batch-actions">
               <button type="button" className="remove-selected" onClick={onClearSelected} disabled={batchBusy}>
                 <TrashIcon size={16} />
-                移除并清缓存
+                {text("移除并清缓存", "Remove and Clear Cache")}
               </button>
             </div>
           </div>
         ) : (
           <button type="button" className="clear-completed" onClick={onClearCompleted}>
             <TrashIcon size={17} />
-            清空已完成缓存
+            {text("清空已完成缓存", "Clear Completed Cache")}
           </button>
         )}
-        <p>内容留在本地 · A QIDU Utility</p>
+        <p>{text("内容留在本地", "Content stays local")} · A QIDU Utility</p>
       </div>
     </aside>
   );
 }
 
-function filterLabel(filter: KindFilter) {
-  return {
-    all: "全部",
-    article: "公众号",
-    video: "视频号",
-  }[filter];
+function filterLabel(filter: KindFilter, language: AppLanguage) {
+  const labels = language === "zh"
+    ? { all: "全部", article: "公众号", video: "视频号" }
+    : { all: "Tasks", article: "Articles", video: "Channels" };
+  return labels[filter];
+}
+
+function englishFilterSuffix(filter: KindFilter) {
+  return filter === "all" ? "" : ` ${filterLabel(filter, "en")}`;
 }
 
 function toggleSource(values: Set<string>, sourceName: string) {
@@ -285,24 +300,34 @@ function FilterTab({
   );
 }
 
-function TaskStatus({ status, statusDetail }: Pick<CaptureTaskDetail["task"], "status" | "statusDetail">) {
-  const label = {
+function TaskStatus({ kind, status }: Pick<CaptureTaskDetail["task"], "kind" | "status">) {
+  const { language } = useI18n();
+  const label = language === "zh" ? {
     queued: "等待处理",
-    processing: statusDetail.includes("视频") ? "正在识别" : "正在读取",
-    ready: statusDetail.includes("视频") ? "可下载" : "可导出",
+    processing: kind === "video" ? "正在识别" : "正在读取",
+    ready: kind === "video" ? "可下载" : "可导出",
     needs_attention: "需查看",
     exporting: "正在导出",
     downloading: "下载中",
     completed: "已完成",
     failed: "失败",
+  }[status] : {
+    queued: "Queued",
+    processing: kind === "video" ? "Detecting" : "Reading",
+    ready: kind === "video" ? "Downloadable" : "Exportable",
+    needs_attention: "Review",
+    exporting: "Exporting",
+    downloading: "Downloading",
+    completed: "Completed",
+    failed: "Failed",
   }[status];
   return <span className={`row-status row-status-${status}`}>{label}</span>;
 }
 
-function formatTaskTime(value: string) {
+function formatTaskTime(value: string, language: AppLanguage) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "刚刚";
-  return new Intl.DateTimeFormat("zh-CN", {
+  if (Number.isNaN(date.getTime())) return language === "zh" ? "刚刚" : "Just now";
+  return new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-US", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
