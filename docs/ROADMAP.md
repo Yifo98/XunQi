@@ -1,18 +1,22 @@
 # 讯栖开发路线
 
-## 当前：0.5.0 正式版
+## 当前：0.5.1 正式版
 
 - [x] macOS Apple Silicon 无 `.app` 源码 ZIP 与启动器
 - [x] 公众号公开文章读取、原版 PDF 与 Markdown 导出
 - [x] 公众号批量 PDF
 - [x] 视频号公开直链下载与 macOS 授权嗅探
-- [x] Windows 原生代码、微信前台识别与 Runner 自动测试
-- [x] Windows 源码 + BAT ZIP 生成与 Runner 校验路径；包内不携带预编译 EXE 或安装器
+- [x] 中文 / English 工作台切换与持久化
+- [x] 顶部与“关于”页诊断日志导出
+- [x] 顶部操作区响应式排版与长标题布局修复
 - [x] 公开演示数据脱敏与干净仓库历史
-- [x] macOS 0.5.0 正式 ZIP、校验值与 GitHub Release
-- [ ] Windows 真机首次启动、二次启动与文章导出验收
-- [ ] Windows 验收后把源码 + BAT ZIP 追加到 `v0.5.0` Release
-- [ ] 正式 Windows 分发前建立可信代码签名通道，并在 Smart App Control 强制模式复验全部二进制路径
+- [x] macOS 0.5.1 正式 ZIP、校验值与 GitHub Release
+
+## 暂停：Windows 发布
+
+- Windows 试验代码保留在公开源码中，但 `v0.5.1` Release 不提供 Windows 运行包。
+- 恢复开发后重新执行原生 Runner、真机首次/二次启动、文章导出和网络恢复验收。
+- 正式 Windows 分发前建立可信代码签名通道，并在 Smart App Control 强制模式复验全部二进制路径。
 
 ## 下一项：自有公众号评论同步
 

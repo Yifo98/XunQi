@@ -1,6 +1,6 @@
 [package]
 name = "xunqi"
-version = "0.5.0"
+version = "0.5.1"
 description = "Local-first WeChat link capture and export"
 authors = ["XiaoFu"]
 edition = "2021"

@@ -46,5 +46,5 @@ echo XUNQI_RUNTIME_LAUNCHER_SELF_TEST_OK
 exit /b 0
 
 :log
->>"%LOG_FILE%" echo [%DATE% %TIME%] event=%~1 version=0.5.0
+>>"%LOG_FILE%" echo [%DATE% %TIME%] event=%~1 version=0.5.1
 exit /b 0
