@@ -43,6 +43,8 @@ ZIP 中保留公开仓库的跨平台源码；其中的 Windows 试验适配、R
 
 ## 使用方法
 
+> **友情提醒（macOS）：** 当前版本尚未经过 Apple 公证。若首次启动被 macOS 拦截，请先确认文件来自本仓库 Release 并核对 SHA-256；优先按 [Apple 官方说明](https://support.apple.com/102445) 前往“系统设置 → 隐私与安全”点击“仍要打开”。如仍需显示“允许任何来源”选项，可在终端运行 `sudo spctl --global-disable`，再回到“隐私与安全”选择“任何来源”。该操作会暂时降低 Gatekeeper 安全保护，启动成功后建议运行 `sudo spctl --global-enable` 恢复保护，请勿对来源不明的软件使用。
+
 1. 完整解压 ZIP。
 2. macOS 双击 `Launch-XunQi.command`。本次 Release 不提供 Windows 正式包。
 3. 在微信中复制分享链接：
